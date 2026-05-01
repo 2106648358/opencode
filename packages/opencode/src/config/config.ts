@@ -41,6 +41,7 @@ import { ConfigPlugin } from "./plugin"
 import { ConfigProvider } from "./provider"
 import { ConfigServer } from "./server"
 import { ConfigSkills } from "./skills"
+import { ConfigTemplate } from "./template"
 import { ConfigVariable } from "./variable"
 import { Npm } from "@opencode-ai/core/npm"
 
@@ -109,6 +110,7 @@ export const Info = Schema.Struct({
     description: "Command configuration, see https://opencode.ai/docs/commands",
   }),
   skills: Schema.optional(ConfigSkills.Info).annotate({ description: "Additional skill folder paths" }),
+  template: Schema.optional(ConfigTemplate.Info).annotate({ description: "Template configuration for prompt templates from git repositories" }),
   watcher: Schema.optional(
     Schema.Struct({
       ignore: Schema.optional(Schema.mutable(Schema.Array(Schema.String))),

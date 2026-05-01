@@ -1,10 +1,14 @@
 import { useProject } from "@tui/context/project"
 import { useSync } from "@tui/context/sync"
-import { createMemo, Show } from "solid-js"
+import { createMemo, createSignal, Show, For } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { useTuiConfig } from "../../context/tui-config"
 import { InstallationChannel, InstallationVersion } from "@opencode-ai/core/installation/version"
 import { TuiPluginRuntime } from "../../plugin"
+import { useCommandDialog } from "../../component/dialog-command"
+import { useKeyboard } from "@opentui/solid"
+import * as fuzzysort from "fuzzysort"
+import { entries, groupBy, pipe } from "remeda"
 
 import { getScrollAcceleration } from "../../util/scroll"
 
@@ -27,6 +31,39 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
     return `${info.type}: ${info.name}`
   }
   const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
+
+  const commandDialog = useCommandDialog()
+  const [search, setSearch] = createSignal("")
+
+  const searchResults = createMemo(() => {
+    const query = search()
+    if (!query) return [] as import("../../component/dialog-command").CommandOption[]
+    const needle = query.toLowerCase()
+    const options = commandDialog.visibleOptions()
+    return fuzzysort
+      .go(needle, options, {
+        keys: ["title", "category"],
+        scoreFn: (r) => r[0].score * 2 + r[1].score,
+      })
+      .map((x) => x.obj)
+  })
+
+  const searchGrouped = createMemo(() => {
+    const results = searchResults()
+    if (results.length === 0) return [] as [string, import("../../component/dialog-command").CommandOption[]][]
+    return pipe(
+      results,
+      groupBy((x: import("../../component/dialog-command").CommandOption) => x.category ?? ""),
+      entries(),
+    )
+  })
+
+  useKeyboard((evt) => {
+    if (search() && evt.name === "escape") {
+      evt.preventDefault()
+      setSearch("")
+    }
+  })
 
   return (
     <Show when={session()}>
@@ -76,7 +113,43 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 </Show>
               </box>
             </TuiPluginRuntime.Slot>
-            <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID} />
+
+            <input
+              placeholder="Search commands..."
+              placeholderColor={theme.textMuted}
+              onInput={(v) => setSearch(v)}
+              focusedBackgroundColor={theme.background}
+              focusedTextColor={theme.text}
+            />
+
+            <Show when={!search()} fallback={
+              <Show when={searchGrouped().length > 0} fallback={
+                <text fg={theme.textMuted}>No results found</text>
+              }>
+                <For each={searchGrouped()}>
+                  {([category, options]) => (
+                    <>
+                      <text fg={theme.textMuted}>{category}</text>
+                      <For each={options}>
+                        {(option) => (
+                          <text
+                            fg={theme.text}
+                            onMouseUp={() => {
+                              commandDialog.trigger(option.value)
+                              setSearch("")
+                            }}
+                          >
+                            {option.title}
+                          </text>
+                        )}
+                      </For>
+                    </>
+                  )}
+                </For>
+              </Show>
+            }>
+              <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID} />
+            </Show>
           </box>
         </scrollbox>
 
