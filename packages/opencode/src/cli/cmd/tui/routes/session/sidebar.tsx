@@ -1,5 +1,6 @@
-import type { InputRenderable } from "@opentui/core"
+import { TextAttributes, type InputRenderable } from "@opentui/core"
 import { useProject } from "@tui/context/project"
+import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { createMemo, createSignal, Show, For } from "solid-js"
 import { useTheme } from "../../context/theme"
@@ -10,6 +11,7 @@ import { useCommandDialog } from "../../component/dialog-command"
 import { useKeyboard } from "@opentui/solid"
 import * as fuzzysort from "fuzzysort"
 import { entries, groupBy, pipe } from "remeda"
+import { Locale } from "@/util"
 
 import { getScrollAcceleration } from "../../util/scroll"
 
@@ -117,6 +119,13 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
               </box>
             </TuiPluginRuntime.Slot>
 
+            <box gap={1}>
+              <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+                Sessions
+              </text>
+              <SessionListCompact currentID={props.sessionID} />
+            </box>
+
             <input
               placeholder="Search commands..."
               placeholderColor={theme.textMuted}
@@ -176,5 +185,46 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
         </box>
       </box>
     </Show>
+  )
+}
+
+function SessionListCompact(props: { currentID: string }) {
+  const sync = useSync()
+  const route = useRoute()
+  const { theme } = useTheme()
+
+  const sessions = createMemo(() => {
+    return sync.data.session
+      .filter((x) => !x.parentID)
+      .toSorted((a, b) => b.time.updated - a.time.updated)
+      .slice(0, 8)
+  })
+
+  return (
+    <For each={sessions()}>
+      {(item) => {
+        const active = () => item.id === props.currentID
+        return (
+          <box
+            flexDirection="row"
+            paddingLeft={1}
+            onMouseUp={() => {
+              if (item.id !== props.currentID) {
+                route.navigate({ type: "session", sessionID: item.id })
+              }
+            }}
+          >
+            <text
+              fg={active() ? theme.primary : theme.text}
+              attributes={active() ? TextAttributes.BOLD : undefined}
+              overflow="hidden"
+              wrapMode="none"
+            >
+              {active() ? "● " : ""}{Locale.truncate(item.title, 34)}
+            </text>
+          </box>
+        )
+      }}
+    </For>
   )
 }
