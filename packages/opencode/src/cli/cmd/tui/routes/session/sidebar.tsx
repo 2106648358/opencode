@@ -1,3 +1,4 @@
+import type { InputRenderable } from "@opentui/core"
 import { useProject } from "@tui/context/project"
 import { useSync } from "@tui/context/sync"
 import { createMemo, createSignal, Show, For } from "solid-js"
@@ -34,8 +35,10 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
 
   const commandDialog = useCommandDialog()
   const [search, setSearch] = createSignal("")
+  let inputRef: InputRenderable | undefined
 
   const searchResults = createMemo(() => {
+
     const query = search()
     if (!query) return [] as import("../../component/dialog-command").CommandOption[]
     const needle = query.toLowerCase()
@@ -120,6 +123,13 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
               onInput={(v) => setSearch(v)}
               focusedBackgroundColor={theme.background}
               focusedTextColor={theme.text}
+              ref={(r) => {
+                inputRef = r
+                setTimeout(() => {
+                  if (!inputRef || inputRef.isDestroyed) return
+                  inputRef.focus()
+                }, 1)
+              }}
             />
 
             <Show when={!search()} fallback={
