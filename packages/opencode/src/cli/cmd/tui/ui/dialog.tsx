@@ -17,7 +17,7 @@ export function Dialog(
   const { theme } = useTheme()
   const renderer = useRenderer()
 
-  let dismiss = false
+  let dismiss: boolean | undefined = undefined
   const width = () => {
     if (props.size === "xlarge") return 116
     if (props.size === "large") return 88
@@ -30,6 +30,7 @@ export function Dialog(
         dismiss = !!renderer.getSelection()
       }}
       onMouseUp={() => {
+        if (dismiss === undefined) return
         if (dismiss) {
           dismiss = false
           return
