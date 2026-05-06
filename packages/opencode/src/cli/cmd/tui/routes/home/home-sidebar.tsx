@@ -74,26 +74,30 @@ export function HomeSidebar(props: { overlay?: boolean }) {
                     onMouseUp={() => route.navigate({ type: "session", sessionID: s.id })}
                     paddingX={1}
                     paddingY={0}
-                    gap={1}
+                    gap={0}
+                    flexDirection="column"
                   >
-                    <Show when={isWorking}>
-                      <text fg={theme.textMuted}>⟳</text>
-                    </Show>
-                    <Show when={!isWorking && wsStatus() !== undefined}>
-                      <text fg={wsStatus() === "connected" ? theme.success : theme.error}>
-                        ■
+                    <box flexDirection="row" gap={0}>
+                      <Show when={isWorking}>
+                        <text fg={theme.textMuted}>{"⟳  "}</text>
+                      </Show>
+                      <Show when={!isWorking && wsStatus() !== undefined}>
+                        <text fg={wsStatus() === "connected" ? theme.success : theme.error}>
+                          {"■  "}
+                        </text>
+                      </Show>
+                      <Show when={!isWorking && wsStatus() === undefined}>
+                        <text fg={theme.textMuted}>{"□  "}</text>
+                      </Show>
+                      <text fg={theme.text} wrapMode="none">
+                        {s.title || "Untitled"}
                       </text>
-                    </Show>
-                    <Show when={!isWorking && wsStatus() === undefined}>
-                      <text fg={theme.textMuted}>□</text>
-                    </Show>
-                    <text fg={theme.text}>
-                      {s.title || "Untitled"}
-                    </text>
-                    <box flexGrow={1} />
-                    <text fg={theme.textMuted}>
-                      {Locale.todayTimeOrDateTime(s.time.updated)}
-                    </text>
+                    </box>
+                    <box flexDirection="row" justifyContent="flex-end">
+                      <text fg={theme.textMuted}>
+                        {Locale.todayTimeOrDateTime(s.time.updated)}
+                      </text>
+                    </box>
                   </box>
                 )
               }}

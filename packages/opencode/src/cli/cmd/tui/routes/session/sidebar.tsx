@@ -76,29 +76,33 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                     onMouseUp={() => route.navigate({ type: "session", sessionID: s.id })}
                     paddingX={1}
                     paddingY={0}
-                    gap={1}
+                    gap={0}
+                    flexDirection="column"
                   >
-                    <text fg={isActive ? selectedForeground(theme) : undefined}>
-                      {isActive ? "◼ " : "  "}
-                    </text>
-                    <Show when={isWorking}>
-                      <text fg={theme.textMuted}>⟳</text>
-                    </Show>
-                    <Show when={!isWorking && wsStatus() !== undefined}>
-                      <text fg={wsStatus() === "connected" ? theme.success : theme.error}>
-                        ■
+                    <box flexDirection="row" gap={0}>
+                      <text fg={isActive ? selectedForeground(theme) : undefined}>
+                        {isActive ? "◼  " : "   "}
                       </text>
-                    </Show>
-                    <Show when={!isWorking && wsStatus() === undefined}>
-                      <text fg={theme.textMuted}>□</text>
-                    </Show>
-                    <text fg={theme.text}>
-                      {s.title || "Untitled"}
-                    </text>
-                    <box flexGrow={1} />
-                    <text fg={theme.textMuted}>
-                      {Locale.todayTimeOrDateTime(s.time.updated)}
-                    </text>
+                      <Show when={isWorking}>
+                        <text fg={theme.textMuted}>{"⟳  "}</text>
+                      </Show>
+                      <Show when={!isWorking && wsStatus() !== undefined}>
+                        <text fg={wsStatus() === "connected" ? theme.success : theme.error}>
+                          {"■  "}
+                        </text>
+                      </Show>
+                      <Show when={!isWorking && wsStatus() === undefined}>
+                        <text fg={theme.textMuted}>{"□  "}</text>
+                      </Show>
+                      <text fg={theme.text} wrapMode="none">
+                        {s.title || "Untitled"}
+                      </text>
+                    </box>
+                    <box flexDirection="row" justifyContent="flex-end">
+                      <text fg={theme.textMuted}>
+                        {Locale.todayTimeOrDateTime(s.time.updated)}
+                      </text>
+                    </box>
                   </box>
                 )
               }}

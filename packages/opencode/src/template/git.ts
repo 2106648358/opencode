@@ -50,6 +50,29 @@ export function needsAuth(errorMessage: string): boolean {
   )
 }
 
+async function ensureGitUser(dir: string): Promise<void> {
+  const name = await git(["config", "user.name"], { cwd: dir })
+  const email = await git(["config", "user.email"], { cwd: dir })
+  if (name.code === 0 && email.code === 0 && name.stdout.trim() && email.stdout.trim()) return
+
+  const globalName = await git(["config", "--global", "user.name"])
+  const globalEmail = await git(["config", "--global", "user.email"])
+
+  if (globalName.code === 0 && globalName.stdout.trim()) {
+    await git(["config", "user.name", globalName.stdout.trim()], { cwd: dir })
+  } else {
+    await git(["config", "user.name", "opencode-template-bot"], { cwd: dir })
+  }
+
+  if (globalEmail.code === 0 && globalEmail.stdout.trim()) {
+    await git(["config", "user.email", globalEmail.stdout.trim()], { cwd: dir })
+  } else {
+    const hostname = await import("os").then((os) => os.hostname())
+    await git(["config", "user.email", `template-bot@${hostname}`], { cwd: dir })
+  }
+  log.info("configured git user for template repo", { dir })
+}
+
 export async function cloneRepo(url: string, dir: string, token?: string): Promise<void> {
   const cloneUrl = token ? embedToken(url, token) : url
   log.info("cloning repo", { url: sanitizeUrl(url), dir })
@@ -99,6 +122,8 @@ export async function submitMr(
   const branch = `template-update-${Date.now()}`
   const pushUrl = token ? embedToken(repo.url, token) : undefined
   log.info("submitting MR", { repo: repo.name, branch })
+
+  await ensureGitUser(dir)
 
   const checkout = await git(["checkout", "-b", branch], { cwd: dir })
   if (checkout.code !== 0) {

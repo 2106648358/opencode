@@ -264,28 +264,6 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     }
   }
 
-  async function handleSubmitMr(repo: UiRepo) {
-    try {
-      log.info("submitting MR", { repo: repo.name })
-      const message = await DialogPrompt.show(dialog, "MR 标题", {
-        placeholder: "feat(templates): update prompt templates",
-        value: "feat(templates): update prompt templates",
-      })
-      if (!message) return
-
-      const token = await TemplateAuth.getRepoToken(repo.name)
-      await TemplateGit.submitMr(repo, message, token)
-      props.api.ui.toast({
-        message: "推送成功！请到仓库页面创建 Merge Request",
-        variant: "success",
-      })
-      log.info("MR submitted", { repo: repo.name })
-    } catch (err) {
-      log.error("MR submission failed", { error: String(err) })
-      props.api.ui.toast({ message: `推送失败: ${String(err)}`, variant: "error" })
-    }
-  }
-
   const repoList = createMemo(() => repos())
   const local = createMemo(() => localTemplates())
 
@@ -399,13 +377,6 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
                     )}
                   </For>
 
-                  <Show when={templates().length > 0}>
-                    <box paddingLeft={2}>
-                      <box onMouseDown={(evt: any) => handle(evt, () => handleSubmitMr(repo))}>
-                        <text fg={theme().info}>[Submit MR]</text>
-                      </box>
-                    </box>
-                  </Show>
                 </Show>
               </box>
             )
