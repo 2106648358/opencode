@@ -1,10 +1,12 @@
 import { useProject } from "@tui/context/project"
 import { useSync } from "@tui/context/sync"
-import { createMemo, Show } from "solid-js"
-import { useTheme } from "../../context/theme"
+import { createMemo, For, Show } from "solid-js"
+import { useTheme, selectedForeground } from "../../context/theme"
 import { useTuiConfig } from "../../context/tui-config"
-import { InstallationChannel, InstallationVersion } from "@opencode-ai/core/installation/version"
+import { InstallationVersion } from "@opencode-ai/core/installation/version"
 import { TuiPluginRuntime } from "../../plugin"
+import { useRoute } from "@tui/context/route"
+import { Locale } from "@/util"
 
 import { getScrollAcceleration } from "../../util/scroll"
 
@@ -13,20 +15,21 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sync = useSync()
   const { theme } = useTheme()
   const tuiConfig = useTuiConfig()
+  const route = useRoute()
   const session = createMemo(() => sync.session.get(props.sessionID))
-  const workspaceStatus = () => {
-    const workspaceID = session()?.workspaceID
-    if (!workspaceID) return "error"
-    return project.workspace.status(workspaceID) ?? "error"
-  }
-  const workspaceLabel = () => {
-    const workspaceID = session()?.workspaceID
-    if (!workspaceID) return "unknown"
-    const info = project.workspace.get(workspaceID)
-    if (!info) return "unknown"
-    return `${info.type}: ${info.name}`
-  }
   const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
+
+  const sessions = createMemo(() => {
+    return sync.data.session
+      .filter((x) => x.parentID === undefined)
+      .toSorted((a, b) => {
+        const dayA = new Date(b.time.updated).setHours(0, 0, 0, 0)
+        const dayB = new Date(a.time.updated).setHours(0, 0, 0, 0)
+        if (dayA !== dayB) return dayA - dayB
+        return b.time.created - a.time.created
+      })
+      .slice(0, 50)
+  })
 
   return (
     <Show when={session()}>
@@ -40,6 +43,12 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
         paddingRight={2}
         position={props.overlay ? "absolute" : "relative"}
       >
+        <box flexShrink={0} paddingBottom={1}>
+          <text fg={theme.text} bold>
+            Sessions
+          </text>
+          <text fg={theme.textMuted}> ({sessions().length})</text>
+        </box>
         <scrollbox
           flexGrow={1}
           scrollAcceleration={scrollAcceleration()}
@@ -50,34 +59,52 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
             },
           }}
         >
-          <box flexShrink={0} gap={1} paddingRight={1}>
-            <TuiPluginRuntime.Slot
-              name="sidebar_title"
-              mode="single_winner"
-              session_id={props.sessionID}
-              title={session()!.title}
-              share_url={session()!.share?.url}
-            >
-              <box paddingRight={1}>
-                <text fg={theme.text}>
-                  <b>{session()!.title}</b>
-                </text>
-                <Show when={InstallationChannel !== "latest"}>
-                  <text fg={theme.textMuted}>{props.sessionID}</text>
-                </Show>
-                <Show when={session()!.workspaceID}>
-                  <text fg={theme.textMuted}>
-                    <span style={{ fg: workspaceStatus() === "connected" ? theme.success : theme.error }}>●</span>{" "}
-                    {workspaceLabel()}
-                  </text>
-                </Show>
-                <Show when={session()!.share?.url}>
-                  <text fg={theme.textMuted}>{session()!.share!.url}</text>
-                </Show>
-              </box>
-            </TuiPluginRuntime.Slot>
-            <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID} />
+          <box flexDirection="column" paddingRight={1}>
+            <For each={sessions()}>
+              {(s) => {
+                const wsStatus = () => {
+                  const id = s.workspaceID
+                  if (!id) return undefined
+                  return project.workspace.status(id) ?? "error"
+                }
+                const status = () => sync.data.session_status?.[s.id]
+                const isWorking = status()?.type === "busy"
+                const isActive = s.id === props.sessionID
+
+                return (
+                  <box
+                    onMouseUp={() => route.navigate({ type: "session", sessionID: s.id })}
+                    paddingX={1}
+                    paddingY={0}
+                    gap={1}
+                  >
+                    <text fg={isActive ? selectedForeground(theme) : undefined}>
+                      {isActive ? "◼ " : "  "}
+                    </text>
+                    <Show when={isWorking}>
+                      <text fg={theme.textMuted}>⟳</text>
+                    </Show>
+                    <Show when={!isWorking && wsStatus() !== undefined}>
+                      <text fg={wsStatus() === "connected" ? theme.success : theme.error}>
+                        ■
+                      </text>
+                    </Show>
+                    <Show when={!isWorking && wsStatus() === undefined}>
+                      <text fg={theme.textMuted}>□</text>
+                    </Show>
+                    <text fg={theme.text}>
+                      {s.title || "Untitled"}
+                    </text>
+                    <box flexGrow={1} />
+                    <text fg={theme.textMuted}>
+                      {Locale.todayTimeOrDateTime(s.time.updated)}
+                    </text>
+                  </box>
+                )
+              }}
+            </For>
           </box>
+          <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID} />
         </scrollbox>
 
         <box flexShrink={0} gap={1} paddingTop={1}>

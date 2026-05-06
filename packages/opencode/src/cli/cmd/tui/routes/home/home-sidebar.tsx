@@ -59,46 +59,45 @@ export function HomeSidebar(props: { overlay?: boolean }) {
         }}
       >
         <box flexDirection="column" paddingRight={1}>
-          <For each={sessions()}>
-            {(session) => {
-              const workspaceStatus = () => {
-                const workspaceID = session.workspaceID
-                if (!workspaceID) return undefined
-                return project.workspace.status(workspaceID) ?? "error"
-              }
-              const status = () => sync.data.session_status?.[session.id]
-              const isWorking = status()?.type === "busy"
+            <For each={sessions()}>
+              {(s) => {
+                const wsStatus = () => {
+                  const id = s.workspaceID
+                  if (!id) return undefined
+                  return project.workspace.status(id) ?? "error"
+                }
+                const status = () => sync.data.session_status?.[s.id]
+                const isWorking = status()?.type === "busy"
 
-              return (
-                <box
-                  onMouseUp={() => route.navigate({ type: "session", sessionID: session.id })}
-                  paddingX={1}
-                  paddingY={0}
-                  gap={1}
-                >
-                  <Show when={isWorking}>
-                    <text fg={theme.textMuted}>⟳</text>
-                  </Show>
-                  <Show when={!isWorking && workspaceStatus() !== undefined}>
-                    <text fg={workspaceStatus() === "connected" ? theme.success : theme.error}>
-                      ●
-                    </text>
-                  </Show>
-                  <Show when={!isWorking && workspaceStatus() === undefined}>
-                    <text fg={theme.textMuted}>○</text>
-                  </Show>
-                  <box flexDirection="column" flexGrow={1} minWidth={0}>
+                return (
+                  <box
+                    onMouseUp={() => route.navigate({ type: "session", sessionID: s.id })}
+                    paddingX={1}
+                    paddingY={0}
+                    gap={1}
+                  >
+                    <Show when={isWorking}>
+                      <text fg={theme.textMuted}>⟳</text>
+                    </Show>
+                    <Show when={!isWorking && wsStatus() !== undefined}>
+                      <text fg={wsStatus() === "connected" ? theme.success : theme.error}>
+                        ■
+                      </text>
+                    </Show>
+                    <Show when={!isWorking && wsStatus() === undefined}>
+                      <text fg={theme.textMuted}>□</text>
+                    </Show>
                     <text fg={theme.text}>
-                      {session.title || "Untitled"}
+                      {s.title || "Untitled"}
                     </text>
+                    <box flexGrow={1} />
                     <text fg={theme.textMuted}>
-                      {Locale.todayTimeOrDateTime(session.time.updated)}
+                      {Locale.todayTimeOrDateTime(s.time.updated)}
                     </text>
                   </box>
-                </box>
-              )
-            }}
-          </For>
+                )
+              }}
+            </For>
         </box>
       </scrollbox>
 
