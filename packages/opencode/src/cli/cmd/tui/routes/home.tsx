@@ -14,7 +14,7 @@ import { useKV } from "../context/kv"
 import { useKeybind } from "../context/keybind"
 import { RGBA } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { HomeSidebar } from "./home-sidebar"
+import { HomeSidebar } from "./home/home-sidebar"
 
 let once = false
 const placeholder = {
