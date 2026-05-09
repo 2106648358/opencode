@@ -43,7 +43,7 @@ export function HomeSidebar(props: { overlay?: boolean }) {
       position={props.overlay ? "absolute" : "relative"}
     >
       <box flexShrink={0} paddingBottom={1}>
-        <text fg={theme.text} bold>
+        <text fg={theme.text}>
           Sessions
         </text>
         <text fg={theme.textMuted}> ({sessions().length})</text>
