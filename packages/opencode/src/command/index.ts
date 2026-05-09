@@ -153,7 +153,7 @@ export const layer = Layer.effect(
         commands[builtin.name] = {
           name: builtin.name,
           description: builtin.description,
-          source: "skill",
+          source: "command",
           get template() {
             return builtin.content
           },
