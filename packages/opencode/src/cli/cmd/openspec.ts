@@ -176,7 +176,7 @@ export const OpenSpecCommand = {
                 } catch (e: any) { console.error(e.message); process.exit(1) }
               })
             .command("init <name>", "Create a new project-local schema",
-              (sy: Argv) => sy.positional("name", { type: "string", demandOption: true }).option("description", { type: "string" }).option("artifacts", { type: "string" }).option("default", { type: "boolean" }).option("force", { type: "boolean" }),
+              (sy: Argv) => sy.positional("name", { type: "string", demandOption: true }).option("description", { type: "string" }).option("artifacts", { type: "string" }).option("default", { type: "boolean" }).option("force", { type: "boolean" }).option("generate-skills", { type: "boolean", describe: "Auto-generate slash command files" }),
               async (sargs: any) => {
                 try {
                   const schemaName = sargs.name as string
@@ -192,7 +192,44 @@ export const OpenSpecCommand = {
                     `name: ${schemaName}\nversion: 1\ndescription: ${desc}\nartifacts:\n${artifactsYaml}\napply:\n  requires: [${applyReq.join(", ")}]\n  tracks: ${applyReq[0] || "tasks"}.md\n  instruction: Read context files, work through tasks, mark complete as you go.\n`)
                   for (const id of ids) await Bun.write(path.join(destDir, "templates", `${id}.md`), `## ${id}\n`)
                   if (sargs.default) await Bun.write(path.join(projectDir(), "openspec", "config.yaml"), `schema: ${schemaName}\n`)
-                  console.log(`Schema "${schemaName}" created`)
+
+                  if (sargs.generateSkills) {
+                    const artifactSteps = ids.map((id: string, i: number) =>
+                      ids.length > 1
+                        ? `## ${i + 1}. Create ${id}\n\n- [ ] Get instructions: \`opencode openspec instructions ${id} --change "<change-name>" --json\`\n- [ ] Create \`${id}.md\` from the template`
+                        : `- [ ] Get instructions: \`opencode openspec instructions ${id} --change "<change-name>" --json\`\n- [ ] Create \`${id}.md\` from the template`
+                    ).join("\n\n")
+
+                    const skillContent =
+                      `---\ndescription: ${desc}\n---\n` +
+                      `Create a change using the **${schemaName}** workflow.\n\n` +
+                      `## Steps\n\n` +
+                      `1. If no change name provided, ask the user what they want to build. Derive a kebab-case name.\n\n` +
+                      `2. Create the change:\n` +
+                      `   \`\`\`bash\n` +
+                      `   opencode openspec new change "<change-name>" --schema ${schemaName}\n` +
+                      `   \`\`\`\n\n` +
+                      `3. Check status:\n` +
+                      `   \`\`\`bash\n` +
+                      `   opencode openspec status --change "<change-name>" --json\n` +
+                      `   \`\`\`\n\n` +
+                      `4. Create each artifact in order until all "applyRequires" are done:\n` +
+                      `${artifactSteps}\n\n` +
+                      `5. When complete, tell the user: "All artifacts created. Ready to implement!"\n`
+
+                    const skillDir = path.join(projectDir(), ".opencode", "skills", schemaName)
+                    await Bun.write(path.join(skillDir, "SKILL.md"),
+                      `---\nname: ${schemaName}\ndescription: ${desc}\n---\n${skillContent}`)
+
+                    const cmdDir = path.join(projectDir(), ".opencode", "commands")
+                    await Bun.write(path.join(cmdDir, `${schemaName}.md`), skillContent)
+
+                    console.log(`Schema "${schemaName}" created with slash commands:`)
+                    console.log(`  /${schemaName}  (slash command)`)
+                    console.log(`  skill:${schemaName}  (AI skill)`)
+                  } else {
+                    console.log(`Schema "${schemaName}" created`)
+                  }
                 } catch (e: any) { console.error(e.message); process.exit(1) }
               })
             .command("validate [name]", "Validate a schema",
