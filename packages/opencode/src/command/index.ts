@@ -11,8 +11,11 @@ import { Config } from "../config"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
 import { BUILTIN_SKILLS } from "../openspec/builtin"
+import { Log } from "../util"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
+
+const log = Log.create({ service: "command" })
 
 type State = {
   commands: Record<string, Info>
@@ -157,6 +160,11 @@ export const layer = Layer.effect(
           hints: [],
         }
       }
+      log.info("builtin skills registered", {
+        count: BUILTIN_SKILLS.length,
+        names: BUILTIN_SKILLS.map((s) => s.name),
+        totalCommands: Object.keys(commands).length,
+      })
 
       for (const item of yield* skill.all()) {
         if (commands[item.name]) continue
