@@ -10,6 +10,7 @@ import { withStatics } from "@/util/schema"
 import { Config } from "../config"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
+import { BUILTIN_SKILLS } from "../openspec/builtin"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 
@@ -141,6 +142,19 @@ export const layer = Layer.effect(
             )
           },
           hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
+        }
+      }
+
+      // Built-in OpenSpec commands (embedded at build time)
+      for (const builtin of BUILTIN_SKILLS) {
+        commands[builtin.name] = {
+          name: builtin.name,
+          description: builtin.description,
+          source: "skill",
+          get template() {
+            return builtin.content
+          },
+          hints: [],
         }
       }
 
