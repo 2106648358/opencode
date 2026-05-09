@@ -18,6 +18,7 @@ import { ConfigMarkdown } from "../config"
 import { Glob } from "@opencode-ai/core/util/glob"
 import { Log } from "../util"
 import { Discovery } from "./discovery"
+import { BUILTIN_SKILLS } from "../openspec/builtin"
 
 const log = Log.create({ service: "skill" })
 const EXTERNAL_DIRS = [".claude", ".agents"]
@@ -203,6 +204,18 @@ const loadSkills = Effect.fnUntraced(function* (state: State, discovered: Discov
     concurrency: "unbounded",
     discard: true,
   })
+
+  // Add built-in OpenSpec skills directly (embedded at build time)
+  for (const builtin of BUILTIN_SKILLS) {
+    if (state.skills[builtin.name]) continue
+    state.dirs.add(path.dirname(builtin.location))
+    state.skills[builtin.name] = {
+      name: builtin.name,
+      description: builtin.description,
+      location: builtin.location,
+      content: builtin.content,
+    }
+  }
 
   log.info("init", { count: Object.keys(state.skills).length })
 })
