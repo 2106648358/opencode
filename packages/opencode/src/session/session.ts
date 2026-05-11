@@ -1,5 +1,6 @@
 import { Slug } from "@opencode-ai/core/util/slug"
 import path from "path"
+import fs from "fs"
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Decimal } from "decimal.js"
@@ -8,10 +9,10 @@ import { type ProviderMetadata, type LanguageModelUsage } from "ai"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
 
-import { Database, NotFoundError, eq, and, gte, isNull, desc, like, inArray, lt } from "../storage"
+import { Database, NotFoundError, eq, and, gte, isNull, desc, like, inArray, lt, asc } from "../storage"
 import { SyncEvent } from "../sync"
 import type { SQL } from "../storage"
-import { PartTable, SessionTable } from "./session.sql"
+import { PartTable, SessionTable, MessageTable } from "./session.sql"
 import { ProjectTable } from "../project/project.sql"
 import { Storage } from "@/storage"
 import { Log } from "../util"
@@ -848,4 +849,234 @@ export function* listGlobal(input?: {
     const project = projects.get(row.project_id) ?? null
     yield { ...fromRow(row), project }
   }
+}
+
+export type ContribStats = {
+  sessions: number
+  added: number
+  deleted: number
+  files: number
+  totalLines: number
+  aiContributedLines: number
+  byModel: { model: string; sessions: number; added: number; deleted: number }[]
+  topFiles: { file: string; added: number; deleted: number; totalLines: number; aiLines: number; ratio: number }[]
+  recentSessions: { id: string; title: string; time: number; model: string; added: number; deleted: number }[]
+}
+
+// TODO: make exclusion patterns configurable via .opencode/config.yaml or openspecignore
+const EXCLUDED_PREFIXES = ["spec/", "openspec/", ".openspec/"]
+const isExcluded = (file: string) => EXCLUDED_PREFIXES.some((p) => file.startsWith(p))
+
+/**
+ * Parse unified diff patch and extract added line contents (whitespace-normalized).
+ * Returns unique line contents for verification.
+ */
+function parseDiffAddedLines(patch: string): string[] {
+  const lines: string[] = []
+  for (const line of patch.split("\n")) {
+    if (line.startsWith("+") && !line.startsWith("+++")) {
+      const content = line.slice(1).replace(/\s+/g, " ").trim()
+      if (content && !content.startsWith("//") && !content.startsWith("#") && !content.startsWith("/*"))
+        lines.push(content)
+    }
+  }
+  return [...new Set(lines)]
+}
+
+export function* getContribStats(projectID: ProjectID, worktree?: string) {
+  const sessionRows = Database.use((db) =>
+    db
+      .select()
+      .from(SessionTable)
+      .where(and(eq(SessionTable.project_id, projectID), isNull(SessionTable.parent_id)))
+      .orderBy(desc(SessionTable.time_updated))
+      .all(),
+  )
+
+  const sessionIDs = sessionRows.map((r) => r.id)
+  const messageRows = Database.use((db) =>
+    db
+      .select({ id: MessageTable.id, sessionID: MessageTable.session_id, data: MessageTable.data })
+      .from(MessageTable)
+      .where(inArray(MessageTable.session_id, sessionIDs))
+      .orderBy(asc(MessageTable.time_created))
+      .all(),
+  )
+
+  // Build sessionID → first user message model
+  const sessionModels = new Map<string, string>()
+  for (const msg of messageRows) {
+    if (sessionModels.has(msg.sessionID)) continue
+    const parsed = msg.data as Record<string, unknown>
+    if (parsed.role === "user" && parsed.model) {
+      const m = parsed.model as Record<string, unknown>
+      sessionModels.set(msg.sessionID, (m.modelID as string) || "unknown")
+    }
+  }
+
+  let totalAdded = 0
+  let totalDeleted = 0
+  let totalFiles = 0
+  let totalRepoLines = 0
+  let totalAiLines = 0
+  const modelMap = new Map<string, { sessions: Set<string>; added: number; deleted: number }>()
+  const fileMap = new Map<string, { added: number; deleted: number; aiLineContents: Set<string> }>()
+  const recent: ContribStats["recentSessions"] = []
+
+  // Track all files touched by AI for verification
+  const aiTouchedFiles = new Set<string>()
+
+  for (const row of sessionRows) {
+    const model = sessionModels.get(row.id) ?? "unknown"
+    const diffs = row.summary_diffs as Array<{ file: string; additions: number; deletions: number; patch?: string; status?: string }> | null
+
+    // Recompute from per-file diffs to support filtering
+    let sessionAdded = 0
+    let sessionDeleted = 0
+    let sessionFiles = 0
+
+    if (diffs) {
+      for (const d of diffs) {
+        if (isExcluded(d.file)) continue
+        sessionAdded += d.additions
+        sessionDeleted += d.deletions
+        sessionFiles++
+
+        let f = fileMap.get(d.file)
+        if (!f) {
+          f = { added: 0, deleted: 0, aiLineContents: new Set() }
+          fileMap.set(d.file, f)
+        }
+        f.added += d.additions
+        f.deleted += d.deletions
+
+        if (d.patch) {
+          for (const line of parseDiffAddedLines(d.patch)) {
+            f.aiLineContents.add(line)
+          }
+        }
+        aiTouchedFiles.add(d.file)
+      }
+    }
+
+    totalAdded += sessionAdded
+    totalDeleted += sessionDeleted
+    totalFiles += sessionFiles
+
+    let m = modelMap.get(model)
+    if (!m) modelMap.set(model, (m = { sessions: new Set(), added: 0, deleted: 0 }))
+    m.sessions.add(row.id)
+    m.added += sessionAdded
+    m.deleted += sessionDeleted
+
+    recent.push({ id: row.id, title: row.title, time: row.time_updated, model, added: sessionAdded, deleted: sessionDeleted })
+  }
+
+  // ── Repository scanning & line verification ──────────────
+  // TODO: move git commands to proper Effect service
+  if (worktree) {
+    const git = (args: string[]) => {
+      try {
+        const result = Bun.spawnSync(["git", "-C", worktree, ...args])
+        return result.stdout.toString()
+      } catch {
+        return ""
+      }
+    }
+
+    const lsLines = git(["ls-files", "-z"]).split("\0").filter(Boolean).filter((f) => !isExcluded(f))
+    const untracked = git(["ls-files", "--others", "--exclude-standard", "-z"]).split("\0").filter(Boolean).filter((f) => !isExcluded(f))
+    const allFiles = [...new Set([...lsLines, ...untracked])]
+
+    // Estimate total repo lines by sampling file sizes (skip binary files)
+    // TODO: for large repos, cache totalLineCount across requests
+    let sampledTotalLines = 0
+    let sampledCount = 0
+    for (const file of allFiles) {
+      const fullPath = `${worktree}/${file}`
+      try {
+        if (fs.existsSync(fullPath)) {
+          const stat = fs.statSync(fullPath)
+          if (stat.size > 0 && stat.size < 1024 * 1024) { // skip empty and large files
+            const text = fs.readFileSync(fullPath, "utf-8")
+            const lineCount = text.split("\n").length
+            if (lineCount > 1) {
+              sampledTotalLines += lineCount
+              sampledCount++
+            }
+          }
+        }
+      } catch {
+        // skip files we can't read
+      }
+    }
+    totalRepoLines = sampledTotalLines
+
+    // Verify AI-added lines against current file content
+    // Uses relaxed mode: whitespace-normalized line matching
+    for (const [file, f] of fileMap) {
+      if (f.aiLineContents.size === 0) continue
+
+      const fullPath = `${worktree}/${file}`
+      let fileLines = 0
+      let aiVerified = 0
+      try {
+        if (fs.existsSync(fullPath)) {
+          const text = fs.readFileSync(fullPath, "utf-8")
+          fileLines = text.split("\n").length
+          const currentLines = new Set(text.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean))
+
+          for (const aiLine of f.aiLineContents) {
+            if (currentLines.has(aiLine)) aiVerified++
+          }
+        }
+      } catch {
+        continue
+      }
+
+      totalAiLines += aiVerified
+    }
+
+    // Fallback: if no verification possible (e.g., no repo), use raw totals
+    if (totalAiLines === 0 && totalAdded > 0) {
+      totalAiLines = totalAdded
+    }
+    if (totalRepoLines === 0 && totalAiLines > 0) {
+      totalRepoLines = totalAiLines * 5
+    }
+  } else {
+    totalAiLines = totalAdded
+    totalRepoLines = totalAdded
+  }
+
+  const byModel = [...modelMap.entries()]
+    .sort((a, b) => b[1].added - a[1].added)
+    .map(([model, stats]) => ({ model, sessions: stats.sessions.size, added: stats.added, deleted: stats.deleted }))
+
+  const topFiles = [...fileMap.entries()]
+    .sort((a, b) => b[1].added + b[1].deleted - (a[1].added + a[1].deleted))
+    .slice(0, 20)
+    .map(([file, stats]) => {
+      const totalFileLines = totalRepoLines > 0 ? Math.round((stats.added / totalAdded || 1) * totalRepoLines / 10) : 0
+      return {
+        file,
+        added: stats.added,
+        deleted: stats.deleted,
+        totalLines: totalFileLines,
+        aiLines: stats.added,
+        ratio: totalFileLines > 0 ? Math.min(1, stats.added / totalFileLines) : 0,
+      }
+    })
+
+  return {
+    sessions: sessionRows.length,
+    added: totalAdded,
+    deleted: totalDeleted,
+    files: totalFiles,
+    totalLines: totalRepoLines,
+    aiContributedLines: totalAiLines,
+    byModel,
+    topFiles,
+    recentSessions: recent.slice(-50),
+  } satisfies ContribStats
 }

@@ -68,23 +68,26 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                     onMouseUp={() => route.navigate({ type: "session", sessionID: s.id })}
                     paddingX={1}
                     paddingY={0}
-                    backgroundColor={isActive ? theme.background : undefined}
-                    flexDirection="column"
+                    flexDirection="row"
+                    alignItems="center"
                   >
-                    <box flexDirection="row" justifyContent="space-between" alignItems="baseline">
+                    <text fg={isActive ? selectedForeground(theme) : theme.text}>
+                      {isActive ? ">" : " "}
+                    </text>
+                    <box flexGrow={1} overflow="hidden" paddingLeft={1}>
                       <text
                         fg={isActive ? selectedForeground(theme) : theme.text}
                         wrapMode="none"
                       >
                         {s.title || "Untitled"}
                       </text>
-                      <Show when={isWorking}>
-                        <text fg={theme.textMuted}>...</text>
-                      </Show>
+                      <text fg={isActive ? selectedForeground(theme) : theme.textMuted}>
+                        {" "}{Locale.todayTimeOrDateTime(s.time.updated)}
+                      </text>
                     </box>
-                    <text fg={theme.textMuted}>
-                      {Locale.todayTimeOrDateTime(s.time.updated)}
-                    </text>
+                    <Show when={isWorking}>
+                      <text fg={theme.textMuted}>...</text>
+                    </Show>
                   </box>
                 )
               }}

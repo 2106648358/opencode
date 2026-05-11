@@ -405,5 +405,60 @@ export const ExperimentalRoutes = lazy(() =>
           const mcp = yield* MCP.Service
           return yield* mcp.resources()
         }),
+    )
+    .get(
+      "/contrib/stats",
+      describeRoute({
+        summary: "Get AI contribution statistics",
+        description: "Aggregated AI contribution stats including per-model breakdown, top files, and recent sessions.",
+        operationId: "experimental.contrib.stats",
+        responses: {
+          200: {
+            description: "Contribution statistics",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    sessions: z.number(),
+                    added: z.number(),
+                    deleted: z.number(),
+                    files: z.number(),
+                    totalLines: z.number(),
+                    aiContributedLines: z.number(),
+                    byModel: z.array(
+                      z.object({ model: z.string(), sessions: z.number(), added: z.number(), deleted: z.number() }),
+                    ),
+                    topFiles: z.array(
+                      z.object({
+                        file: z.string(),
+                        added: z.number(),
+                        deleted: z.number(),
+                        totalLines: z.number(),
+                        aiLines: z.number(),
+                        ratio: z.number(),
+                      }),
+                    ),
+                    recentSessions: z.array(
+                      z.object({
+                        id: z.string(),
+                        title: z.string(),
+                        time: z.number(),
+                        model: z.string(),
+                        added: z.number(),
+                        deleted: z.number(),
+                      }),
+                    ),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) =>
+        jsonRequest("ExperimentalRoutes.contrib.stats", c, function* () {
+          const project = Instance.project
+          return yield* Session.getContribStats(project.id, project.worktree)
+        }),
     ),
 )
