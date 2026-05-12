@@ -79,6 +79,7 @@ export const layer = Layer.effect(
       const diffs = yield* summary.computeDiff({ messages: range })
       yield* storage.write(["session_diff", input.sessionID], diffs).pipe(Effect.ignore)
       yield* bus.publish(Session.Event.Diff, { sessionID: input.sessionID, diff: diffs })
+      // 将 diffs 写入 session 表的 summary_diffs 列，供 getContribStats() 读取
       yield* sessions.setRevert({
         sessionID: input.sessionID,
         revert: rev,
@@ -86,6 +87,7 @@ export const layer = Layer.effect(
           additions: diffs.reduce((sum, x) => sum + x.additions, 0),
           deletions: diffs.reduce((sum, x) => sum + x.deletions, 0),
           files: diffs.length,
+          diffs,
         },
       })
       return yield* sessions.get(input.sessionID)

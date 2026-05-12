@@ -916,7 +916,8 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       {plugin()}
       <TuiPluginRuntime.Slot name="app" />
       <StartupLoading ready={ready} />
-      <Show when={dialog.stack.length === 0}>
+      {/** AI统计按钮：在统计对话框打开或有其他弹窗时隐藏 */}
+      <Show when={!aiStats() && dialog.stack.length === 0}>
         <box
           position="absolute"
           bottom={1}

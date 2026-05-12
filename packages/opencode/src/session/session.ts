@@ -856,6 +856,10 @@ export type ContribStats = {
   added: number
   deleted: number
   files: number
+  /** 仓库文件总数 */
+  totalFiles: number
+  /** AI 触及的独立文件数（去重） */
+  aiTouchedFiles: number
   totalLines: number
   aiContributedLines: number
   byModel: { model: string; sessions: number; added: number; deleted: number }[]
@@ -972,8 +976,10 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
     recent.push({ id: row.id, title: row.title, time: row.time_updated, model, added: sessionAdded, deleted: sessionDeleted })
   }
 
-  // ── Repository scanning & line verification ──────────────
+  // ── 仓库扫描 & 行级验证 ────────────────────────────────
   // TODO: move git commands to proper Effect service
+  /** 仓库文件总数，用于统计 AI 文件占比 */
+  let repoFileCount = 0
   if (worktree) {
     const git = (args: string[]) => {
       try {
@@ -987,6 +993,7 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
     const lsLines = git(["ls-files", "-z"]).split("\0").filter(Boolean).filter((f) => !isExcluded(f))
     const untracked = git(["ls-files", "--others", "--exclude-standard", "-z"]).split("\0").filter(Boolean).filter((f) => !isExcluded(f))
     const allFiles = [...new Set([...lsLines, ...untracked])]
+    repoFileCount = allFiles.length
 
     // Estimate total repo lines by sampling file sizes (skip binary files)
     // TODO: for large repos, cache totalLineCount across requests
@@ -1072,7 +1079,12 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
     sessions: sessionRows.length,
     added: totalAdded,
     deleted: totalDeleted,
+    /** AI 触及的文件条目总数（跨会话累加，非去重） */
     files: totalFiles,
+    /** 仓库文件总数 */
+    totalFiles: repoFileCount,
+    /** AI 触及的独立文件数（去重） */
+    aiTouchedFiles: aiTouchedFiles.size,
     totalLines: totalRepoLines,
     aiContributedLines: totalAiLines,
     byModel,

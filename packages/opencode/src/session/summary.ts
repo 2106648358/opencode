@@ -108,12 +108,14 @@ export const layer = Layer.effect(
       if (!all.length) return
 
       const diffs = yield* computeDiff({ messages: all })
+      // 将 diffs 写入 session 表的 summary_diffs 列，供 getContribStats() 读取
       yield* sessions.setSummary({
         sessionID: input.sessionID,
         summary: {
           additions: diffs.reduce((sum, x) => sum + x.additions, 0),
           deletions: diffs.reduce((sum, x) => sum + x.deletions, 0),
           files: diffs.length,
+          diffs,
         },
       })
       yield* storage.write(["session_diff", input.sessionID], diffs).pipe(Effect.ignore)

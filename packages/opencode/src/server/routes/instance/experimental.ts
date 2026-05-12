@@ -422,7 +422,12 @@ export const ExperimentalRoutes = lazy(() =>
                     sessions: z.number(),
                     added: z.number(),
                     deleted: z.number(),
+                    /** AI 触及的文件条目总数（跨会话累加，非去重） */
                     files: z.number(),
+                    /** 仓库文件总数 */
+                    totalFiles: z.number(),
+                    /** AI 触及的独立文件数（去重） */
+                    aiTouchedFiles: z.number(),
                     totalLines: z.number(),
                     aiContributedLines: z.number(),
                     byModel: z.array(
