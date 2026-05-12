@@ -1,10 +1,15 @@
 import fs from "fs"
 import path from "path"
 
-const SKILLS_DIR = path.join(import.meta.dirname, "builtin", "skills")
+const SKILLS_DIR = path.join(import.meta.dirname, "..", "..", "builtin", "skills")
 
 function loadSkill(dirName: string) {
-  return fs.readFileSync(path.join(SKILLS_DIR, dirName, "SKILL.md"), "utf-8")
+  const filePath = path.join(SKILLS_DIR, dirName, "SKILL.md")
+  try {
+    return fs.readFileSync(filePath, "utf-8")
+  } catch {
+    return ""
+  }
 }
 
 export const BUILTIN_SKILLS: Array<{ name: string; description: string; content: string; location: string }> = [
