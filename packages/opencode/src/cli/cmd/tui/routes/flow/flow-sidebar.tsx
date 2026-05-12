@@ -83,8 +83,7 @@ export function FlowSidebar(props: {
       </box>
       <box flexShrink={0} height={1} backgroundColor={theme.border} />
 
-      <scrollbox flexGrow={1}>
-        <box flexDirection="column">
+      <box flexDirection="column" flexGrow={1}>
           <box
             flexDirection="row"
             gap={1}
@@ -120,8 +119,6 @@ export function FlowSidebar(props: {
             </For>
           </Show>
 
-          <box height={1} backgroundColor={theme.border} marginTop={1} />
-
           <box
             flexDirection="row"
             gap={1}
@@ -136,49 +133,49 @@ export function FlowSidebar(props: {
           </box>
 
           <Show when={repoExpanded()}>
-            <Show when={reposLoading()}>
-              <box paddingLeft={2}>
-                <text fg={theme.textMuted}>loading...</text>
-              </box>
-            </Show>
-
-            <Show when={reposError()}>
-              <box paddingLeft={2}>
-                <text fg={theme.error}>{reposError()}</text>
-              </box>
-            </Show>
-
-            <For each={repos()}>
-              {(repo: GitLabRepo) => (
-                <box
-                  paddingLeft={2}
-                  paddingX={1}
-                  paddingY={0}
-                  flexDirection="row"
-                  gap={1}
-                  onMouseUp={() =>
-                    props.onSelectedRepoChange?.(
-                      props.selectedRepo === repo.path_with_namespace ? undefined : repo.path_with_namespace,
-                    )
-                  }
-                >
-                  <text
-                    fg={props.selectedRepo === repo.path_with_namespace ? theme.accent : theme.text}
-                  >
-                    {props.selectedRepo === repo.path_with_namespace ? "●" : "○"}
-                  </text>
-                  <text
-                    fg={props.selectedRepo === repo.path_with_namespace ? theme.accent : theme.text}
-                    wrapMode="none"
-                  >
-                    {repo.path_with_namespace}
-                  </text>
+            <box flexDirection="column">
+              <Show when={reposLoading()}>
+                <box paddingLeft={2}>
+                  <text fg={theme.textMuted}>loading...</text>
                 </box>
-              )}
-            </For>
-          </Show>
+              </Show>
 
-          <box height={1} backgroundColor={theme.border} marginTop={1} />
+              <Show when={reposError()}>
+                <box paddingLeft={2}>
+                  <text fg={theme.error}>{reposError()}</text>
+                </box>
+              </Show>
+
+              <For each={repos()}>
+                {(repo: GitLabRepo) => (
+                  <box
+                    paddingLeft={2}
+                    paddingX={1}
+                    paddingY={0}
+                    flexDirection="row"
+                    gap={1}
+                    onMouseUp={() =>
+                      props.onSelectedRepoChange?.(
+                        props.selectedRepo === repo.path_with_namespace ? undefined : repo.path_with_namespace,
+                      )
+                    }
+                  >
+                    <text
+                      fg={props.selectedRepo === repo.path_with_namespace ? theme.accent : theme.text}
+                    >
+                      {props.selectedRepo === repo.path_with_namespace ? "●" : "○"}
+                    </text>
+                    <text
+                      fg={props.selectedRepo === repo.path_with_namespace ? theme.accent : theme.text}
+                      wrapMode="none"
+                    >
+                      {repo.path_with_namespace}
+                    </text>
+                  </box>
+                )}
+              </For>
+            </box>
+          </Show>
 
           <Show when={canCreateBranch()}>
             <box paddingTop={1} paddingLeft={1}>
@@ -192,8 +189,6 @@ export function FlowSidebar(props: {
               </box>
             </box>
           </Show>
-
-          <box height={1} backgroundColor={theme.border} marginTop={1} />
 
           <box
             flexDirection="row"
@@ -211,7 +206,6 @@ export function FlowSidebar(props: {
             <Workflow prdTitle={props.prdTitle} repoPath={props.repoPath} />
           </Show>
         </box>
-      </scrollbox>
 
       <box flexShrink={0}>
         <box height={1} backgroundColor={theme.border} marginBottom={1} />
