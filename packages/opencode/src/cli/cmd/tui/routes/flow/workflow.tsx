@@ -99,16 +99,27 @@ export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
 
 async function loadTemplateContent(templateName: string): Promise<string | undefined> {
   try {
+    const localDir = await getLocalDir()
+    const localTemplates = await TemplateFile.listTemplates(localDir)
+    const found = localTemplates.find((t) => t.name === templateName)
+    if (found) return found.content
+
     const repos = await Repo.loadRepos()
     for (const repo of repos) {
       const dir = Repo.repoDir(repo)
       const templates = await TemplateFile.listTemplates(dir)
-      const found = templates.find((t) => t.name === templateName)
-      if (found) return found.content
+      const hit = templates.find((t) => t.name === templateName)
+      if (hit) return hit.content
     }
     return undefined
   } catch (err) {
     log.warn("failed to load template", { templateName, error: String(err) })
     return undefined
   }
+}
+
+async function getLocalDir(): Promise<string> {
+  const path = await import("path")
+  const { Global } = await import("@opencode-ai/core/global")
+  return path.join(Global.Path.data, "templates", "local")
 }
