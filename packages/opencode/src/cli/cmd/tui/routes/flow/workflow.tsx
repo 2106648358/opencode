@@ -9,7 +9,7 @@ import { Log } from "@/util"
 
 const log = Log.create({ service: "tui.flow.workflow" })
 
-export function Workflow() {
+export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
   const { theme } = useTheme()
   const promptRef = usePromptRef()
   const [activeStep, setActiveStep] = createSignal(0)
@@ -20,7 +20,14 @@ export function Workflow() {
 
     try {
       const loaded = await loadTemplateContent(step.templateName)
-      const promptContent = loaded ?? step.label
+      let promptContent = loaded ?? step.label
+
+      if (props.prdTitle || props.repoPath) {
+        const contextParts: string[] = []
+        if (props.prdTitle) contextParts.push(`PRD: ${props.prdTitle}`)
+        if (props.repoPath) contextParts.push(`仓库地址: ${props.repoPath}`)
+        promptContent = `${contextParts.join("\n")}\n\n${promptContent}`
+      }
 
       const ref = promptRef.current
       if (ref) {

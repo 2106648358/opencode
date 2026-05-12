@@ -17,6 +17,7 @@ import { useCommandDialog } from "../../component/dialog-command"
 import { RGBA } from "@opentui/core"
 import { FlowSidebar } from "./flow-sidebar"
 import { Workflow } from "./workflow"
+import { MOCK_PRDS } from "./config"
 import { errorMessage } from "@/util/error"
 
 export function Flow() {
@@ -34,6 +35,15 @@ export function Flow() {
   const command = useCommandDialog()
 
   const session = createMemo(() => sync.session.get(route.sessionID))
+
+  const [selectedPRD, setSelectedPRD] = createSignal<string | undefined>()
+  const [selectedRepo, setSelectedRepo] = createSignal<string | undefined>()
+
+  const prdTitle = createMemo(() => {
+    const id = selectedPRD()
+    if (!id) return undefined
+    return MOCK_PRDS.find((p) => p.id === id)?.title
+  })
 
   const [sidebar, setSidebar] = kv.signal<"auto" | "hide">("sidebar", "auto")
   const [sidebarOpen, setSidebarOpen] = createSignal(false)
@@ -59,6 +69,13 @@ export function Flow() {
   const bind = (r: PromptRef | undefined) => {
     prompt = r
     promptRef.set(r)
+  }
+
+  const handleCreateBranch = (promptText: string) => {
+    const ref = prompt
+    if (!ref) return
+    ref.set({ input: promptText, parts: [] })
+    ref.focus()
   }
 
   createEffect(() => {
@@ -140,7 +157,7 @@ export function Flow() {
             <box height={1} backgroundColor={theme.border} />
 
             <scrollbox flexGrow={1}>
-              <Workflow />
+              <Workflow prdTitle={prdTitle()} repoPath={selectedRepo()} />
             </scrollbox>
 
             <box flexShrink={0} paddingBottom={1}>
@@ -166,7 +183,13 @@ export function Flow() {
         <Show when={sidebarVisible()}>
           <Switch>
             <Match when={wide()}>
-              <FlowSidebar />
+              <FlowSidebar
+                selectedPRD={selectedPRD()}
+                selectedRepo={selectedRepo()}
+                onSelectedPRDChange={setSelectedPRD}
+                onSelectedRepoChange={setSelectedRepo}
+                onCreateBranch={handleCreateBranch}
+              />
             </Match>
             <Match when={!wide()}>
               <box
@@ -178,7 +201,14 @@ export function Flow() {
                 alignItems="flex-end"
                 backgroundColor={RGBA.fromInts(0, 0, 0, 70)}
               >
-                <FlowSidebar overlay />
+                <FlowSidebar
+                  overlay
+                  selectedPRD={selectedPRD()}
+                  selectedRepo={selectedRepo()}
+                  onSelectedPRDChange={setSelectedPRD}
+                  onSelectedRepoChange={setSelectedRepo}
+                  onCreateBranch={handleCreateBranch}
+                />
               </box>
             </Match>
           </Switch>

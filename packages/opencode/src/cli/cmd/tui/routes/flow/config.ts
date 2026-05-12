@@ -37,3 +37,21 @@ export const FLOW_STEPS: FlowStep[] = [
   { key: "step3", label: "根据change分别生成design/task", templateName: "flow-step3" },
   { key: "step4", label: "根据task生成代码", templateName: "flow-step4" },
 ]
+
+export function buildCreateBranchPrompt(repoPath: string, prdTitle?: string) {
+  const repoDir = repoPath.split("/").pop() ?? repoPath
+  const tokenUrl = `http://oauth2:${GITLAB_CONFIG.token}@git.edianzu.cn/${repoPath}.git`
+  const prdContext = prdTitle ? `PRD: ${prdTitle}\n` : ""
+  return `## 任务
+为 GitLab 仓库 ${repoPath} 创建工作树，基于 dev 创建特性分支并设置为当前工作区。
+
+${prdContext}## 要求
+1. 使用 git clone ${tokenUrl} 克隆到 ./${repoDir}（如本地已有则 pull 更新）
+2. 使用 git worktree add 创建一个新的工作树，分支名按以下规则自动生成：flow/{PRD特点}-{仓库简称}-{MMDD}
+3. 新分支基于 dev 分支创建
+4. 将工作树目录设置为当前工作区
+
+## 说明
+- 使用 git worktree 而非直接 clone，以便后续针对同一仓库的多个特性并行开发
+- 工作树目录命名建议：./${repoDir}-work-{分支名}`
+}

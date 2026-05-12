@@ -1,15 +1,20 @@
 import { createMemo, createSignal, For, Show, onMount } from "solid-js"
 import { useTheme } from "../../context/theme"
-import { MOCK_PRDS, GITLAB_CONFIG } from "./config"
+import { MOCK_PRDS, GITLAB_CONFIG, buildCreateBranchPrompt } from "./config"
 import type { PRDEntry, GitLabRepo } from "./config"
 import { Log } from "@/util"
 
 const log = Log.create({ service: "tui.flow.sidebar" })
 
-export function FlowSidebar(props: { overlay?: boolean }) {
+export function FlowSidebar(props: {
+  overlay?: boolean
+  selectedPRD?: string
+  selectedRepo?: string
+  onSelectedPRDChange?: (id: string | undefined) => void
+  onSelectedRepoChange?: (repo: string | undefined) => void
+  onCreateBranch?: (prompt: string) => void
+}) {
   const { theme } = useTheme()
-  const [selectedPRD, setSelectedPRD] = createSignal<string | undefined>()
-  const [selectedRepo, setSelectedRepo] = createSignal<string | undefined>()
   const [repos, setRepos] = createSignal<GitLabRepo[]>([])
   const [reposLoading, setReposLoading] = createSignal(false)
   const [reposError, setReposError] = createSignal<string | undefined>()
@@ -42,6 +47,19 @@ export function FlowSidebar(props: { overlay?: boolean }) {
   }
 
   const prdList = createMemo(() => MOCK_PRDS)
+
+  const canCreateBranch = createMemo(() => props.selectedPRD && props.selectedRepo)
+
+  function handleCreateBranch() {
+    const repo = props.selectedRepo
+    if (!repo) return
+    const prdTitle = props.selectedPRD
+      ? prdList().find((p) => p.id === props.selectedPRD)?.title
+      : undefined
+    const prompt = buildCreateBranchPrompt(repo, prdTitle)
+    log.info("create branch prompt generated", { repo, prdTitle })
+    props.onCreateBranch?.(prompt)
+  }
 
   return (
     <box
@@ -85,12 +103,12 @@ export function FlowSidebar(props: { overlay?: boolean }) {
                   paddingY={0}
                   flexDirection="row"
                   gap={1}
-                  onMouseUp={() => setSelectedPRD((prev) => (prev === prd.id ? undefined : prd.id))}
+                  onMouseUp={() => props.onSelectedPRDChange?.(props.selectedPRD === prd.id ? undefined : prd.id)}
                 >
-                  <text fg={selectedPRD() === prd.id ? theme.accent : theme.text}>
-                    {selectedPRD() === prd.id ? "●" : "○"}
+                  <text fg={props.selectedPRD === prd.id ? theme.accent : theme.text}>
+                    {props.selectedPRD === prd.id ? "●" : "○"}
                   </text>
-                  <text fg={selectedPRD() === prd.id ? theme.accent : theme.text}>
+                  <text fg={props.selectedPRD === prd.id ? theme.accent : theme.text}>
                     {prd.name}: {prd.title}
                   </text>
                 </box>
@@ -135,18 +153,18 @@ export function FlowSidebar(props: { overlay?: boolean }) {
                   flexDirection="row"
                   gap={1}
                   onMouseUp={() =>
-                    setSelectedRepo((prev) =>
-                      prev === repo.path_with_namespace ? undefined : repo.path_with_namespace,
+                    props.onSelectedRepoChange?.(
+                      props.selectedRepo === repo.path_with_namespace ? undefined : repo.path_with_namespace,
                     )
                   }
                 >
                   <text
-                    fg={selectedRepo() === repo.path_with_namespace ? theme.accent : theme.text}
+                    fg={props.selectedRepo === repo.path_with_namespace ? theme.accent : theme.text}
                   >
-                    {selectedRepo() === repo.path_with_namespace ? "●" : "○"}
+                    {props.selectedRepo === repo.path_with_namespace ? "●" : "○"}
                   </text>
                   <text
-                    fg={selectedRepo() === repo.path_with_namespace ? theme.accent : theme.text}
+                    fg={props.selectedRepo === repo.path_with_namespace ? theme.accent : theme.text}
                     wrapMode="none"
                   >
                     {repo.path_with_namespace}
@@ -158,15 +176,13 @@ export function FlowSidebar(props: { overlay?: boolean }) {
 
           <box height={1} backgroundColor={theme.border} marginTop={1} />
 
-          <Show when={selectedRepo()}>
+          <Show when={canCreateBranch()}>
             <box paddingTop={1} paddingLeft={1}>
               <box
                 backgroundColor={theme.backgroundElement}
                 paddingX={1}
                 paddingY={0}
-                onMouseUp={() => {
-                  log.info("create branch and pull", { repo: selectedRepo() })
-                }}
+                onMouseUp={handleCreateBranch}
               >
                 <text fg={theme.success}>+ 创建分支 & 拉取代码</text>
               </box>
@@ -177,8 +193,8 @@ export function FlowSidebar(props: { overlay?: boolean }) {
 
       <box flexShrink={0}>
         <box height={1} backgroundColor={theme.border} marginBottom={1} />
-        <text fg={theme.textMuted}>PRD: {selectedPRD() ? "✓" : "—"}</text>
-        <text fg={theme.textMuted}>Repo: {selectedRepo() ? "✓" : "—"}</text>
+        <text fg={theme.textMuted}>PRD: {props.selectedPRD ? "✓" : "—"}</text>
+        <text fg={theme.textMuted}>Repo: {props.selectedRepo ? "✓" : "—"}</text>
       </box>
     </box>
   )

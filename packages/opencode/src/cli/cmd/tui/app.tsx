@@ -675,7 +675,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://opencode.ai/docs").catch(() => {})
+        open("https://opencode.ai/docs").catch(() => { })
         dialog.clear()
       },
       category: "System",
@@ -780,7 +780,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       category: "Developer",
       slash: { name: "stats" },
       onSelect: () => {
-        dialog.replace(() => <DialogAIStats onClose={() => dialog.clear()} />)
+        setAiStats(true)
       },
     },
   ])
@@ -897,9 +897,9 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       }}
       onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
     >
-      
+
       <Show when={aiStats()}>
-            <DialogAIStats onClose={() => setAiStats(false)} />
+        <DialogAIStats onClose={() => setAiStats(false)} />
       </Show>
       <Show when={Flag.OPENCODE_SHOW_TTFD}>
         <TimeToFirstDraw />
