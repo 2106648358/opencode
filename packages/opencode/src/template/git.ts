@@ -1,5 +1,7 @@
 import { Log, Filesystem } from "../util"
 import { run } from "../util/process"
+import path from "path"
+import { Global } from "@opencode-ai/core/global"
 import type { RepoEntry } from "./repo"
 
 const log = Log.create({ service: "template.git" })
@@ -204,8 +206,6 @@ function sanitizeUrl(url: string): string {
 }
 
 function repoDir(repo: RepoEntry): string {
-  const path = require("path") as typeof import("path")
-  const { Global } = require("@opencode-ai/core/global") as typeof import("@opencode-ai/core/global")
   return path.join(Global.Path.data, "templates", repo.name)
 }
 

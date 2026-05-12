@@ -1,4 +1,6 @@
 import { Log, Filesystem } from "../util"
+import path from "path"
+import { Global } from "@opencode-ai/core/global"
 
 const log = Log.create({ service: "template.auth" })
 
@@ -12,8 +14,6 @@ type RepoAuth = {
 let cached: RepoAuth | undefined
 
 function authFilePath(): string {
-  const { Global } = require("@opencode-ai/core/global") as typeof import("@opencode-ai/core/global")
-  const path = require("path") as typeof import("path")
   return path.join(Global.Path.state, "template-auth.json")
 }
 
