@@ -22,7 +22,7 @@ import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderList } from "@tui/component/dialog-provider"
 import { ErrorComponent } from "@tui/component/error-component"
 import { PluginRouteMissing } from "@tui/component/plugin-route-missing"
-import { ProjectProvider } from "@tui/context/project"
+import { ProjectProvider, useProject } from "@tui/context/project"
 import { EditorContextProvider } from "@tui/context/editor"
 import { useEvent } from "@tui/context/event"
 import { SDKProvider, useSDK } from "@tui/context/sdk"
@@ -44,6 +44,7 @@ import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
+import { Flow } from "@tui/routes/flow"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
@@ -214,6 +215,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
   const event = useEvent()
   const sdk = useSDK()
   const toast = useToast()
+  const { workspace } = useProject()
   const themeState = useTheme()
   const { theme, mode, setMode, locked, lock, unlock } = themeState
   const sync = useSync()
@@ -431,6 +433,39 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         route.navigate({
           type: "home",
         })
+        dialog.clear()
+      },
+    },
+    {
+      title: "Flow mode",
+      value: "session.flow",
+      suggested: route.data.type !== "flow",
+      category: "Session",
+      slash: {
+        name: "flow",
+      },
+      onSelect: async () => {
+        if (route.data.type === "flow") {
+          dialog.clear()
+          return
+        }
+        if (route.data.type === "session") {
+          route.navigate({ type: "flow", sessionID: route.data.sessionID })
+          dialog.clear()
+          return
+        }
+        const res = await sdk.client.session.create({
+          workspace: workspace.current(),
+        })
+        if (res.error) {
+          toast.show({
+            message: "Failed to create session for flow mode",
+            variant: "error",
+            duration: 5000,
+          })
+          return
+        }
+        route.navigate({ type: "flow", sessionID: res.data.id })
         dialog.clear()
       },
     },
@@ -871,6 +906,9 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           </Match>
           <Match when={route.data.type === "session"}>
             <Session />
+          </Match>
+          <Match when={route.data.type === "flow"}>
+            <Flow />
           </Match>
         </Switch>
       </Show>

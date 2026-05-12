@@ -33,9 +33,13 @@ export function DialogAIStats(props: { onClose: () => void }) {
 
   return (
     <box
+      position="absolute"
+      top={0}
+      left={0}
       width={dimensions().width}
       height={dimensions().height}
       backgroundColor={theme.backgroundPanel}
+      zIndex={4000}
       onMouseUp={() => props.onClose()}
     >
       <box flexDirection="column" width="100%" height="100%">
