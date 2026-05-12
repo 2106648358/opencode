@@ -77,14 +77,7 @@ function routeNavigate(route: ReturnType<typeof useRoute>, name: string, params?
   if (name === "session") {
     const sessionID = params?.sessionID
     if (typeof sessionID !== "string") return
-    route.navigate({ type: "session", sessionID })
-    return
-  }
-
-  if (name === "flow") {
-    const sessionID = params?.sessionID
-    if (typeof sessionID !== "string") return
-    route.navigate({ type: "flow", sessionID })
+    route.navigate({ type: "session", sessionID, mode: (params?.mode as "chat" | "flow") })
     return
   }
 
@@ -99,14 +92,7 @@ function routeCurrent(route: ReturnType<typeof useRoute>): TuiPluginApi["route"]
       params: {
         sessionID: route.data.sessionID,
         prompt: route.data.prompt,
-      },
-    }
-  }
-  if (route.data.type === "flow") {
-    return {
-      name: "flow",
-      params: {
-        sessionID: route.data.sessionID,
+        mode: route.data.mode,
       },
     }
   }

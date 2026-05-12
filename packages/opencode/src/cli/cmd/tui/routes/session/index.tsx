@@ -73,6 +73,11 @@ import { Toast, useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv.tsx"
 import * as Editor from "../../util/editor"
 import stripAnsi from "strip-ansi"
+import { FlowSidebar } from "../flow/flow-sidebar"
+import { MOCK_PRDS } from "../flow/config"
+import { Log } from "@/util"
+
+const flowLog = Log.create({ service: "tui.flow" })
 import { usePromptRef } from "../../context/prompt"
 import { useExit } from "../../context/exit"
 import { Filesystem } from "@/util"
@@ -135,8 +140,44 @@ export function Session() {
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
-  const [flowMsgIds] = kv.signal<string[]>(`flow_msg_${route.sessionID}`, [])
+  const [flowMsgIds, setFlowMsgIds] = kv.signal<string[]>(`flow_msg_${route.sessionID}`, [])
   const flowSet = createMemo(() => new Set<string>(flowMsgIds()))
+  const isFlowMode = createMemo(() => route.mode === "flow")
+  const [flowSeenIds, setFlowSeenIds] = createSignal<Set<string>>(new Set())
+  const [selectedPRD, setSelectedPRD] = createSignal<string | undefined>()
+  const [selectedRepo, setSelectedRepo] = createSignal<string | undefined>()
+  const prdTitle = createMemo(() => {
+    const id = selectedPRD()
+    if (!id) return undefined
+    return MOCK_PRDS.find((p) => p.id === id)?.title
+  })
+
+  onMount(() => {
+    if (!isFlowMode()) return
+    const existing = messages()
+    setFlowSeenIds(new Set(existing.map((m) => m.id)))
+    flowLog.info("flow tracking mounted", { sessionID: route.sessionID, existingCount: existing.length })
+  })
+
+  createEffect(() => {
+    if (!isFlowMode()) return
+    const msgs = messages()
+    const seen = flowSeenIds()
+    const newMsgs = msgs.filter((m) => !seen.has(m.id))
+    if (newMsgs.length === 0) return
+    const newIds = newMsgs.map((m) => m.id)
+    flowLog.info("flow new messages", { sessionID: route.sessionID, total: msgs.length, new: newMsgs.length, newIds })
+    setFlowMsgIds([...flowMsgIds(), ...newIds] as any)
+    setFlowSeenIds(new Set([...seen, ...new Set(newIds)]))
+  })
+
+  const handleCreateBranch = (promptText: string) => {
+    const ref = prompt
+    if (!ref) return
+    ref.set({ input: promptText, parts: [] })
+    ref.focus()
+  }
+
   const permissions = createMemo(() => {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.permission[x.id] ?? [])
@@ -391,6 +432,23 @@ export function Session() {
 
   const command = useCommandDialog()
   command.register(() => [
+    {
+      title: isFlowMode() ? "Switch to Chat" : "Flow mode",
+      value: isFlowMode() ? "flow.chat" : "session.flow",
+      suggested: true,
+      category: "Session",
+      slash: {
+        name: isFlowMode() ? "chat" : "flow",
+      },
+      onSelect: (dialog) => {
+        navigate({
+          type: "session",
+          sessionID: route.sessionID,
+          mode: isFlowMode() ? undefined : "flow",
+        })
+        dialog.clear()
+      },
+    },
     {
       title: session()?.share?.url ? "Copy share link" : "Share session",
       value: "session.share",
@@ -1212,10 +1270,43 @@ export function Session() {
         </box>
         <Show when={sidebarVisible()}>
           <Switch>
-            <Match when={wide()}>
+            <Match when={wide() && isFlowMode()}>
+              <FlowSidebar
+                selectedPRD={selectedPRD()}
+                selectedRepo={selectedRepo()}
+                prdTitle={prdTitle()}
+                repoPath={selectedRepo()}
+                onSelectedPRDChange={setSelectedPRD}
+                onSelectedRepoChange={setSelectedRepo}
+                onCreateBranch={handleCreateBranch}
+              />
+            </Match>
+            <Match when={!wide() && isFlowMode()}>
+              <box
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                alignItems="flex-end"
+                backgroundColor={RGBA.fromInts(0, 0, 0, 70)}
+              >
+                <FlowSidebar
+                  overlay
+                  selectedPRD={selectedPRD()}
+                  selectedRepo={selectedRepo()}
+                  prdTitle={prdTitle()}
+                  repoPath={selectedRepo()}
+                  onSelectedPRDChange={setSelectedPRD}
+                  onSelectedRepoChange={setSelectedRepo}
+                  onCreateBranch={handleCreateBranch}
+                />
+              </box>
+            </Match>
+            <Match when={wide() && !isFlowMode()}>
               <Sidebar sessionID={route.sessionID} />
             </Match>
-            <Match when={!wide()}>
+            <Match when={!wide() && !isFlowMode()}>
               <box
                 position="absolute"
                 top={0}

@@ -44,7 +44,6 @@ import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
-import { Flow } from "@tui/routes/flow"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
@@ -440,18 +439,18 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     {
       title: "Flow mode",
       value: "session.flow",
-      suggested: route.data.type !== "flow",
+      suggested: route.data.type === "home" || (route.data.type === "session" && !(route.data as any).mode),
       category: "Session",
       slash: {
         name: "flow",
       },
       onSelect: async () => {
-        if (route.data.type === "flow") {
+        if (route.data.type === "session" && (route.data as any).mode === "flow") {
           dialog.clear()
           return
         }
         if (route.data.type === "session") {
-          route.navigate({ type: "flow", sessionID: route.data.sessionID })
+          route.navigate({ type: "session", sessionID: route.data.sessionID, mode: "flow" })
           dialog.clear()
           return
         }
@@ -466,7 +465,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           })
           return
         }
-        route.navigate({ type: "flow", sessionID: res.data.id })
+        route.navigate({ type: "session", sessionID: res.data.id, mode: "flow" })
         dialog.clear()
       },
     },
@@ -911,9 +910,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           </Match>
           <Match when={route.data.type === "session"}>
             <Session />
-          </Match>
-          <Match when={route.data.type === "flow"}>
-            <Flow />
           </Match>
         </Switch>
       </Show>
