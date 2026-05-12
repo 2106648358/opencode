@@ -91,11 +91,11 @@ export function Flow() {
       seenCount: seen.size,
       beforeFlowMsgs: flowMsgIds(),
     })
-    setFlowMsgIds((prev) => [...prev, ...newIds])
+    setFlowMsgIds([...flowMsgIds(), ...newIds] as any)
     setSeenIds(new Set([...seen, ...new Set(newIds)]))
   })
 
-  const flowSet = createMemo(() => new Set(flowMsgIds()))
+  const flowSet = createMemo(() => new Set<string>(flowMsgIds()))
 
   const [workflowExpanded, setWorkflowExpanded] = createSignal(true)
 

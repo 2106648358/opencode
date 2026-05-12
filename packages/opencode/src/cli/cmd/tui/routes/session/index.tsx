@@ -136,7 +136,7 @@ export function Session() {
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const [flowMsgIds] = kv.signal<string[]>(`flow_msg_${route.sessionID}`, [])
-  const flowSet = createMemo(() => new Set(flowMsgIds()))
+  const flowSet = createMemo(() => new Set<string>(flowMsgIds()))
   const permissions = createMemo(() => {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.permission[x.id] ?? [])
