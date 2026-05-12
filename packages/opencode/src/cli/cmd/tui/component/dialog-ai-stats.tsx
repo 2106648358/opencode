@@ -1,13 +1,21 @@
 import { createMemo, For, Show } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
-import { useTerminalDimensions } from "@opentui/solid"
+import { useTerminalDimensions, useKeyboard } from "@opentui/solid"
 import { Locale } from "@/util"
 
 export function DialogAIStats(props: { onClose: () => void }) {
   const sync = useSync()
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
+
+  useKeyboard((evt) => {
+    if (evt.name === "escape") {
+      props.onClose()
+      evt.preventDefault()
+      evt.stopPropagation()
+    }
+  })
 
   const contrib = createMemo(() => sync.data.contrib as {
     sessions: number
@@ -46,7 +54,7 @@ export function DialogAIStats(props: { onClose: () => void }) {
         <box flexShrink={0} paddingLeft={2} paddingRight={2} paddingY={1} backgroundColor={theme.backgroundElement}>
           <text fg={theme.accent}>AI 贡献报告</text>
           <text fg={theme.textMuted}> </text>
-          <text fg={theme.textMuted}>Esc 或点击任意处关闭</text>
+          <text fg={theme.textMuted}>点击任意处关闭</text>
         </box>
 
         <Show when={!contrib() || contrib()!.sessions === 0}>

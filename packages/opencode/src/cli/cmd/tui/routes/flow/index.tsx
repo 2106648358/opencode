@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createSignal, Match, Show, Switch } from "solid-js"
+import { batch, createEffect, createMemo, createSignal, Match, onMount, Show, Switch } from "solid-js"
 import { useRouteData } from "@tui/context/route"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
@@ -8,6 +8,7 @@ import { usePromptRef } from "@tui/context/prompt"
 import { useKV } from "@tui/context/kv"
 import { useKeybind } from "@tui/context/keybind"
 import { useTheme } from "@tui/context/theme"
+import { useTuiConfig } from "@tui/context/tui-config"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
 import { TuiPluginRuntime } from "../../plugin"
@@ -17,8 +18,13 @@ import { useCommandDialog } from "../../component/dialog-command"
 import { RGBA } from "@opentui/core"
 import { FlowSidebar } from "./flow-sidebar"
 import { Workflow } from "./workflow"
+import { FlowMessages } from "./message-renderer"
 import { MOCK_PRDS } from "./config"
 import { errorMessage } from "@/util/error"
+import { getScrollAcceleration } from "../../util/scroll"
+import { Log } from "@/util"
+
+const log = Log.create({ service: "tui.flow" })
 
 export function Flow() {
   const route = useRouteData("flow")
@@ -30,6 +36,7 @@ export function Flow() {
   const kv = useKV()
   const keybind = useKeybind()
   const { theme } = useTheme()
+  const tuiConfig = useTuiConfig()
   const dimensions = useTerminalDimensions()
   const toast = useToast()
   const command = useCommandDialog()
@@ -53,6 +60,44 @@ export function Flow() {
     if (sidebar() === "auto" && wide()) return true
     return false
   })
+
+  const [flowMsgIds, setFlowMsgIds] = kv.signal<string[]>(`flow_msg_${route.sessionID}`, [])
+  const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  const [seenIds, setSeenIds] = createSignal<Set<string>>(new Set())
+
+  onMount(() => {
+    const existing = messages()
+    const ids = new Set(existing.map((m) => m.id))
+    setSeenIds(ids)
+    log.info("flow mounted", {
+      sessionID: route.sessionID,
+      existingCount: existing.length,
+      existingIds: [...ids].slice(-5),
+      flowMsgIds: flowMsgIds(),
+    })
+  })
+
+  createEffect(() => {
+    const msgs = messages()
+    const seen = seenIds()
+    const newMsgs = msgs.filter((m) => !seen.has(m.id))
+    if (newMsgs.length === 0) return
+    const newIds = newMsgs.map((m) => m.id)
+    log.info("detected new messages", {
+      sessionID: route.sessionID,
+      total: msgs.length,
+      new: newMsgs.length,
+      newIds,
+      seenCount: seen.size,
+      beforeFlowMsgs: flowMsgIds(),
+    })
+    setFlowMsgIds((prev) => [...prev, ...newIds])
+    setSeenIds(new Set([...seen, ...new Set(newIds)]))
+  })
+
+  const flowSet = createMemo(() => new Set(flowMsgIds()))
+
+  const [workflowExpanded, setWorkflowExpanded] = createSignal(true)
 
   useKeyboard((evt) => {
     if (keybind.match("sidebar_toggle", evt)) {
@@ -138,6 +183,8 @@ export function Flow() {
     },
   ])
 
+  const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
+
   return (
     <>
       <box flexDirection="row" flexGrow={1}>
@@ -156,8 +203,24 @@ export function Flow() {
             </box>
             <box height={1} backgroundColor={theme.border} />
 
-            <scrollbox flexGrow={1}>
+            <box
+              flexDirection="row"
+              gap={1}
+              onMouseUp={() => setWorkflowExpanded((x) => !x)}
+            >
+              <text fg={theme.text}>{workflowExpanded() ? "▼" : "▶"}</text>
+              <text fg={theme.text}>Workflow</text>
+            </box>
+            <Show when={workflowExpanded()}>
               <Workflow prdTitle={prdTitle()} repoPath={selectedRepo()} />
+              <box height={1} backgroundColor={theme.border} />
+            </Show>
+
+            <scrollbox
+              flexGrow={1}
+              scrollAcceleration={scrollAcceleration()}
+            >
+              <FlowMessages messages={messages()} flowMsgIds={flowSet()} />
             </scrollbox>
 
             <box flexShrink={0} paddingBottom={1}>

@@ -108,6 +108,7 @@ const context = createContext<{
   providers: () => ReadonlyMap<string, Provider>
   sync: ReturnType<typeof useSync>
   tui: ReturnType<typeof useTuiConfig>
+  flowSet: () => Set<string>
 }>()
 
 function use() {
@@ -134,6 +135,8 @@ export function Session() {
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  const [flowMsgIds] = kv.signal<string[]>(`flow_msg_${route.sessionID}`, [])
+  const flowSet = createMemo(() => new Set(flowMsgIds()))
   const permissions = createMemo(() => {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.permission[x.id] ?? [])
@@ -1050,6 +1053,7 @@ export function Session() {
         providers,
         sync,
         tui: tuiConfig,
+        flowSet: () => flowSet(),
       }}
     >
       <box flexDirection="row">
@@ -1295,6 +1299,11 @@ function UserMessage(props: {
             backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
             flexShrink={0}
           >
+            <box paddingBottom={0}>
+              <text fg={ctx.flowSet().has(props.message.id) ? theme.accent : theme.textMuted}>
+                {ctx.flowSet().has(props.message.id) ? "[Flow]" : "[Chat]"}
+              </text>
+            </box>
             <text fg={theme.text}>{text()}</text>
             <Show when={files().length}>
               <box flexDirection="row" paddingBottom={metadataVisible() ? 1 : 0} paddingTop={1} gap={1} flexWrap="wrap">
@@ -1412,6 +1421,13 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
         <Match when={props.last || final() || props.message.error?.name === "MessageAbortedError"}>
           <box paddingLeft={3}>
             <text marginTop={1}>
+              <span
+                style={{
+                  fg: ctx.flowSet().has(props.message.id) ? theme.accent : theme.textMuted,
+                }}
+              >
+                {ctx.flowSet().has(props.message.id) ? "[Flow]" : "[Chat]"}{" "}
+              </span>
               <span
                 style={{
                   fg:
