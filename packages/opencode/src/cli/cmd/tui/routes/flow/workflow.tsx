@@ -1,10 +1,11 @@
-import { createMemo, For, createSignal } from "solid-js"
+import { createMemo, For, createSignal, onMount } from "solid-js"
 import { useTheme, selectedForeground } from "../../context/theme"
 import { usePromptRef } from "../../context/prompt"
 import { FLOW_STEPS } from "./config"
 import type { FlowStep } from "./config"
 import * as TemplateFile from "@/template/file"
 import * as Repo from "@/template/repo"
+import { seedFlowTemplates } from "@/template/seed"
 import { Log } from "@/util"
 
 const log = Log.create({ service: "tui.flow.workflow" })
@@ -14,6 +15,18 @@ export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
   const promptRef = usePromptRef()
   const [activeStep, setActiveStep] = createSignal(0)
   const [completed, setCompleted] = createSignal<Set<number>>(new Set())
+  const [templateStatus, setTemplateStatus] = createSignal<Record<string, boolean>>({})
+
+  onMount(async () => {
+    await seedFlowTemplates(FLOW_STEPS)
+    const status: Record<string, boolean> = {}
+    for (const step of FLOW_STEPS) {
+      const content = await loadTemplateContent(step.templateName)
+      status[step.key] = content !== undefined
+    }
+    setTemplateStatus(status)
+    log.info("workflow mounted, template status", { status })
+  })
 
   const handleStepClick = async (step: FlowStep, index: number) => {
     if (index !== activeStep()) return
@@ -75,6 +88,7 @@ export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
         {(step, index) => {
           const isActive = createMemo(() => index() === activeStep())
           const isDone = createMemo(() => completed().has(index()))
+          const hasTemplate = createMemo(() => templateStatus()[step.key] ?? false)
 
           return (
             <box
@@ -86,6 +100,9 @@ export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
               backgroundColor={isActive() ? theme.backgroundElement : undefined}
             >
               <text fg={stepColors()[index()]}>{stepIndicators()[index()]}</text>
+              <text fg={hasTemplate() ? theme.success : theme.textMuted}>
+                {hasTemplate() ? "✓" : "✗"}
+              </text>
               <text fg={isActive() ? selectedForeground(theme) : stepColors()[index()]}>
                 {step.label}
               </text>
