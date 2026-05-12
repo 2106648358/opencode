@@ -150,9 +150,9 @@ export function tui(input: {
                     initialRoute={
                       input.args.continue
                         ? {
-                            type: "session",
-                            sessionID: "dummy",
-                          }
+                          type: "session",
+                          sessionID: "dummy",
+                        }
                         : undefined
                     }
                   >
@@ -224,6 +224,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
   const routes: RouteMap = new Map()
   const [routeRev, setRouteRev] = createSignal(0)
   const [statsHover, setStatsHover] = createSignal(false)
+  const [aiStats, setAiStats] = createSignal(false)
   const routeView = (name: string) => {
     routeRev()
     return routes.get(name)?.at(-1)?.render
@@ -601,20 +602,20 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     },
     ...(sync.data.console_state.switchableOrgCount > 1
       ? [
-          {
-            title: "Switch org",
-            value: "console.org.switch",
-            suggested: Boolean(sync.data.console_state.activeOrgName),
-            slash: {
-              name: "org",
-              aliases: ["orgs", "switch-org"],
-            },
-            onSelect: () => {
-              dialog.replace(() => <DialogConsoleOrg />)
-            },
-            category: "Provider",
+        {
+          title: "Switch org",
+          value: "console.org.switch",
+          suggested: Boolean(sync.data.console_state.activeOrgName),
+          slash: {
+            name: "org",
+            aliases: ["orgs", "switch-org"],
           },
-        ]
+          onSelect: () => {
+            dialog.replace(() => <DialogConsoleOrg />)
+          },
+          category: "Provider",
+        },
+      ]
       : []),
     {
       title: "View status",
@@ -896,6 +897,10 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       }}
       onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
     >
+      
+      <Show when={aiStats()}>
+            <DialogAIStats onClose={() => setAiStats(false)} />
+      </Show>
       <Show when={Flag.OPENCODE_SHOW_TTFD}>
         <TimeToFirstDraw />
       </Show>
@@ -921,7 +926,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           bottom={1}
           right={1}
           zIndex={2000}
-          onMouseUp={() => dialog.replace(() => <DialogAIStats onClose={() => dialog.clear()} />)}
+          onMouseUp={() => setAiStats(true)}
         >
           <box
             paddingLeft={2}
