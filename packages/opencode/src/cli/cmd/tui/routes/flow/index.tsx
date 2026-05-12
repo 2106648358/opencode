@@ -17,7 +17,6 @@ import { useToast } from "../../ui/toast"
 import { useCommandDialog } from "../../component/dialog-command"
 import { RGBA } from "@opentui/core"
 import { FlowSidebar } from "./flow-sidebar"
-import { Workflow } from "./workflow"
 import { FlowMessages } from "./message-renderer"
 import { MOCK_PRDS } from "./config"
 import { errorMessage } from "@/util/error"
@@ -96,8 +95,6 @@ export function Flow() {
   })
 
   const flowSet = createMemo(() => new Set<string>(flowMsgIds()))
-
-  const [workflowExpanded, setWorkflowExpanded] = createSignal(true)
 
   useKeyboard((evt) => {
     if (keybind.match("sidebar_toggle", evt)) {
@@ -203,19 +200,6 @@ export function Flow() {
             </box>
             <box height={1} backgroundColor={theme.border} />
 
-            <box
-              flexDirection="row"
-              gap={1}
-              onMouseUp={() => setWorkflowExpanded((x) => !x)}
-            >
-              <text fg={theme.text}>{workflowExpanded() ? "▼" : "▶"}</text>
-              <text fg={theme.text}>Workflow</text>
-            </box>
-            <Show when={workflowExpanded()}>
-              <Workflow prdTitle={prdTitle()} repoPath={selectedRepo()} />
-              <box height={1} backgroundColor={theme.border} />
-            </Show>
-
             <scrollbox
               flexGrow={1}
               scrollAcceleration={scrollAcceleration()}
@@ -249,6 +233,8 @@ export function Flow() {
               <FlowSidebar
                 selectedPRD={selectedPRD()}
                 selectedRepo={selectedRepo()}
+                prdTitle={prdTitle()}
+                repoPath={selectedRepo()}
                 onSelectedPRDChange={setSelectedPRD}
                 onSelectedRepoChange={setSelectedRepo}
                 onCreateBranch={handleCreateBranch}
@@ -268,6 +254,8 @@ export function Flow() {
                   overlay
                   selectedPRD={selectedPRD()}
                   selectedRepo={selectedRepo()}
+                  prdTitle={prdTitle()}
+                  repoPath={selectedRepo()}
                   onSelectedPRDChange={setSelectedPRD}
                   onSelectedRepoChange={setSelectedRepo}
                   onCreateBranch={handleCreateBranch}

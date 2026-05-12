@@ -29,7 +29,11 @@ export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
   })
 
   const handleStepClick = async (step: FlowStep, index: number) => {
-    if (index !== activeStep()) return
+    log.info("step clicked", { key: step.key, index, activeStep: activeStep() })
+    if (index !== activeStep()) {
+      log.info("step not active, ignoring", { key: step.key, index, active: activeStep() })
+      return
+    }
 
     try {
       const loaded = await loadTemplateContent(step.templateName)
@@ -76,14 +80,7 @@ export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
   })
 
   return (
-    <box flexDirection="column" paddingTop={2} paddingBottom={2}>
-      <box paddingBottom={1}>
-        <text fg={theme.text}>
-          <b>Workflow</b>
-        </text>
-        <text fg={theme.textMuted}> (select step to inject prompt)</text>
-      </box>
-      <box height={1} backgroundColor={theme.border} />
+    <box flexDirection="column">
       <For each={FLOW_STEPS}>
         {(step, index) => {
           const isActive = createMemo(() => index() === activeStep())
@@ -92,9 +89,12 @@ export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
 
           return (
             <box
-              onMouseUp={() => handleStepClick(step, index())}
-              paddingX={1}
-              paddingY={0}
+              onMouseUp={(evt: any) => {
+                evt.stopPropagation()
+                handleStepClick(step, index())
+              }}
+              paddingX={2}
+              paddingY={1}
               flexDirection="row"
               gap={1}
               backgroundColor={isActive() ? theme.backgroundElement : undefined}

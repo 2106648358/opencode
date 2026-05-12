@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, Show, onMount } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { MOCK_PRDS, GITLAB_CONFIG, buildCreateBranchPrompt } from "./config"
 import type { PRDEntry, GitLabRepo } from "./config"
+import { Workflow } from "./workflow"
 import { Log } from "@/util"
 
 const log = Log.create({ service: "tui.flow.sidebar" })
@@ -10,6 +11,8 @@ export function FlowSidebar(props: {
   overlay?: boolean
   selectedPRD?: string
   selectedRepo?: string
+  prdTitle?: string
+  repoPath?: string
   onSelectedPRDChange?: (id: string | undefined) => void
   onSelectedRepoChange?: (repo: string | undefined) => void
   onCreateBranch?: (prompt: string) => void
@@ -20,6 +23,7 @@ export function FlowSidebar(props: {
   const [reposError, setReposError] = createSignal<string | undefined>()
   const [prdExpanded, setPrdExpanded] = createSignal(true)
   const [repoExpanded, setRepoExpanded] = createSignal(true)
+  const [workflowExpanded, setWorkflowExpanded] = createSignal(true)
 
   onMount(() => {
     fetchGitLabRepos()
@@ -187,6 +191,24 @@ export function FlowSidebar(props: {
                 <text fg={theme.success}>+ 创建分支 & 拉取代码</text>
               </box>
             </box>
+          </Show>
+
+          <box height={1} backgroundColor={theme.border} marginTop={1} />
+
+          <box
+            flexDirection="row"
+            gap={1}
+            paddingTop={1}
+            onMouseUp={() => setWorkflowExpanded((x) => !x)}
+          >
+            <text fg={theme.text}>{workflowExpanded() ? "▼" : "▶"}</text>
+            <text fg={theme.text}>
+              <b>Workflow</b>
+            </text>
+          </box>
+
+          <Show when={workflowExpanded()}>
+            <Workflow prdTitle={props.prdTitle} repoPath={props.repoPath} />
           </Show>
         </box>
       </scrollbox>
