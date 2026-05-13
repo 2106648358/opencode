@@ -233,6 +233,8 @@ export const layer: Layer.Layer<
           const tracked = diff.text.split("\0").filter(Boolean)
           const untracked = other.text.split("\0").filter(Boolean)
           const all = Array.from(new Set([...tracked, ...untracked]))
+          /** 发现变更候选文件，含已跟踪变更 + 未跟踪新文件 */
+          log.info("snapshot candidates", { tracked: tracked.length, untracked: untracked.length, total: all.length })
           if (!all.length) return
 
           // Resolve source-repo ignore rules against the exact candidate set.
@@ -267,6 +269,8 @@ export const layer: Layer.Layer<
             )).filter((item): item is string => Boolean(item)),
           )
           const block = new Set(untracked.filter((item) => large.has(item)))
+          /** 暂存允许的文件到快照索引（排除 2MB+ 大文件 + gitignore 文件） */
+          log.info("snapshot staging", { allowed: allow.length - block.size, blockedLarge: block.size, blockedIgnore: ignored.size })
           yield* sync(Array.from(block))
           // Stage only the allowed candidate paths so snapshot updates stay scoped.
           yield* stage(allow.filter((item) => !block.has(item)))
@@ -662,6 +666,11 @@ export const layer: Layer.Layer<
                 if (!code || !file) continue
                 status.set(file, code.startsWith("A") ? "added" : code.startsWith("D") ? "deleted" : "modified")
               }
+              /** 快照间文件变更状态统计 */
+              const addedCount = [...status.values()].filter((v) => v === "added").length
+              const deletedCount = [...status.values()].filter((v) => v === "deleted").length
+              const modifiedCount = [...status.values()].filter((v) => v === "modified").length
+              log.info("snapshot diff status", { from, to, added: addedCount, deleted: deletedCount, modified: modifiedCount, fromSHA: from.slice(0,7), toSHA: to.slice(0,7) })
 
               const numstat = yield* git(
                 [...quote, ...args(["diff", "--no-ext-diff", "--no-renames", "--numstat", from, to, "--", "."])],
@@ -690,6 +699,11 @@ export const layer: Layer.Layer<
                     } satisfies Row,
                   ]
                 })
+
+              /** 快照间行级变更：总新增/删除行数 + 文件数 */
+              const totalDiffAdds = rows.reduce((s, r) => s + r.additions, 0)
+              const totalDiffDels = rows.reduce((s, r) => s + r.deletions, 0)
+              log.info("snapshot diff numstat", { totalAdditions: totalDiffAdds, totalDeletions: totalDiffDels, fileCount: rows.length })
 
               // Hide ignored-file removals from the user-facing diff output.
               const ignored = yield* ignore(rows.map((r) => r.file))
@@ -720,6 +734,13 @@ export const layer: Layer.Layer<
                 }
               }
 
+              /** 快照 diff 生成完成：文件数 + 行数汇总 */
+              log.info("snapshot diff result", {
+                files: result.length,
+                totalAdditions: result.reduce((s, d) => s + d.additions, 0),
+                totalDeletions: result.reduce((s, d) => s + d.deletions, 0),
+                binaryCount: result.filter((d) => d.patch === "").length,
+              })
               return result
             }),
           )

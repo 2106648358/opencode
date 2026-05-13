@@ -896,6 +896,7 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
       .orderBy(desc(SessionTable.time_updated))
       .all(),
   )
+  log.info("contrib stats: sessions found", { count: sessionRows.length, projectID })
 
   const sessionIDs = sessionRows.map((r) => r.id)
   const messageRows = Database.use((db) =>
@@ -906,6 +907,7 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
       .orderBy(asc(MessageTable.time_created))
       .all(),
   )
+  log.info("contrib stats: messages found", { count: messageRows.length })
 
   // Build sessionID → first user message model
   const sessionModels = new Map<string, string>()
@@ -976,6 +978,17 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
     recent.push({ id: row.id, title: row.title, time: row.time_updated, model, added: sessionAdded, deleted: sessionDeleted })
   }
 
+  /** 逐会话逐文件累加完成，汇总 AI 触及条目 */
+  log.info("contrib stats: diffs aggregated", {
+    totalAdded,
+    totalDeleted,
+    fileEntries: totalFiles,
+    aiTouchedFiles: aiTouchedFiles.size,
+    modelCount: modelMap.size,
+    sessionsWithDiffs: sessionRows.filter((r) => r.summary_diffs != null).length,
+    sessionsWithoutDiffs: sessionRows.filter((r) => r.summary_diffs == null).length,
+  })
+
   // ── 仓库扫描 & 行级验证 ────────────────────────────────
   // TODO: move git commands to proper Effect service
   /** 仓库文件总数，用于统计 AI 文件占比 */
@@ -994,6 +1007,8 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
     const untracked = git(["ls-files", "--others", "--exclude-standard", "-z"]).split("\0").filter(Boolean).filter((f) => !isExcluded(f))
     const allFiles = [...new Set([...lsLines, ...untracked])]
     repoFileCount = allFiles.length
+    /** 仓库文件扫描：已跟踪 + 未跟踪（排除 spec/ openspec/ .openspec/） */
+    log.info("contrib stats: repo scan", { tracked: lsLines.length, untracked: untracked.length, total: repoFileCount, worktree })
 
     // Estimate total repo lines by sampling file sizes (skip binary files)
     // TODO: for large repos, cache totalLineCount across requests
@@ -1018,6 +1033,8 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
       }
     }
     totalRepoLines = sampledTotalLines
+    /** 仓库行数估算完成：抽样文件总行数 */
+    log.info("contrib stats: repo lines estimated", { sampledTotalLines, sampledCount, skippedNonText: repoFileCount - sampledCount })
 
     // Verify AI-added lines against current file content
     // Uses relaxed mode: whitespace-normalized line matching
@@ -1043,6 +1060,14 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
 
       totalAiLines += aiVerified
     }
+
+    /** 行级验证完成：对比 AI 行与当前仓库文件内容 */
+    log.info("contrib stats: line verification done", {
+      totalAiLines,
+      totalAdded,
+      verifiedFiles: [...fileMap].filter(([_, f]) => f.aiLineContents.size > 0).length,
+      aiTouchedFiles: aiTouchedFiles.size,
+    })
 
     // Fallback: if no verification possible (e.g., no repo), use raw totals
     if (totalAiLines === 0 && totalAdded > 0) {
@@ -1074,6 +1099,20 @@ export function* getContribStats(projectID: ProjectID, worktree?: string) {
         ratio: totalFileLines > 0 ? Math.min(1, stats.added / totalFileLines) : 0,
       }
     })
+
+  /** 最终统计结果汇总 */
+  log.info("contrib stats: result", {
+    sessions: sessionRows.length,
+    added: totalAdded,
+    deleted: totalDeleted,
+    files: totalFiles,
+    totalFiles: repoFileCount,
+    aiTouchedFiles: aiTouchedFiles.size,
+    totalLines: totalRepoLines,
+    aiContributedLines: totalAiLines,
+    byModel: byModel.length,
+    topFiles: topFiles.length,
+  })
 
   return {
     sessions: sessionRows.length,

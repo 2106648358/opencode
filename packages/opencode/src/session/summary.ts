@@ -7,6 +7,9 @@ import { withStatics } from "@/util/schema"
 import * as Session from "./session"
 import { MessageV2 } from "./message-v2"
 import { SessionID, MessageID } from "./schema"
+import { Log } from "@/util"
+
+const log = Log.create({ service: "session_summary" })
 
 function unquoteGitPath(input: string) {
   if (!input.startsWith('"')) return input
@@ -108,6 +111,13 @@ export const layer = Layer.effect(
       if (!all.length) return
 
       const diffs = yield* computeDiff({ messages: all })
+      /** 会话 diff 计算完成：文件数 + 行数 */
+      log.info("session summary computed", {
+        sessionID: input.sessionID,
+        diffs: diffs.length,
+        additions: diffs.reduce((sum, x) => sum + x.additions, 0),
+        deletions: diffs.reduce((sum, x) => sum + x.deletions, 0),
+      })
       // 将 diffs 写入 session 表的 summary_diffs 列，供 getContribStats() 读取
       yield* sessions.setSummary({
         sessionID: input.sessionID,
@@ -118,6 +128,8 @@ export const layer = Layer.effect(
           diffs,
         },
       })
+      /** diffs 已持久化到 session 表 */
+      log.info("session summary persisted", { sessionID: input.sessionID })
       yield* storage.write(["session_diff", input.sessionID], diffs).pipe(Effect.ignore)
       yield* bus.publish(Session.Event.Diff, { sessionID: input.sessionID, diff: diffs })
 

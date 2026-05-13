@@ -454,7 +454,11 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           void Promise.all([
             ...(args.continue ? [] : [sessionListPromise.then((sessions) => setStore("session", reconcile(sessions)))]),
             sessionAllPromise.then((sessions) => setStore("session_all", reconcile(sessions))),
-            contribStatsPromise.then((data) => setStore("contrib", reconcile(data))),
+            contribStatsPromise.then((data) => {
+              /** 前端接收 AI 贡献统计数据 */
+              console.log("[tui] contrib stats received:", JSON.stringify(data))
+              setStore("contrib", reconcile(data))
+            }),
             consoleStatePromise.then((consoleState) => setStore("console_state", reconcile(consoleState))),
             sdk.client.command.list({ workspace }).then((x) => setStore("command", reconcile(x.data ?? []))),
             sdk.client.lsp.status({ workspace }).then((x) => setStore("lsp", reconcile(x.data ?? []))),

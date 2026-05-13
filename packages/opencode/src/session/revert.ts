@@ -77,6 +77,8 @@ export const layer = Layer.effect(
       if (rev.snapshot) rev.diff = yield* snap.diff(rev.snapshot as string)
       const range = all.filter((msg) => msg.info.id >= rev!.messageID)
       const diffs = yield* summary.computeDiff({ messages: range })
+      /** 回退后重新计算会话 diff */
+      log.info("session revert computed", { sessionID: input.sessionID, diffs: diffs.length, additions: diffs.reduce((s, x) => s + x.additions, 0), deletions: diffs.reduce((s, x) => s + x.deletions, 0) })
       yield* storage.write(["session_diff", input.sessionID], diffs).pipe(Effect.ignore)
       yield* bus.publish(Session.Event.Diff, { sessionID: input.sessionID, diff: diffs })
       // 将 diffs 写入 session 表的 summary_diffs 列，供 getContribStats() 读取
@@ -90,6 +92,8 @@ export const layer = Layer.effect(
           diffs,
         },
       })
+      /** revert diffs 已持久化 */
+      log.info("session revert persisted", { sessionID: input.sessionID })
       return yield* sessions.get(input.sessionID)
     })
 
