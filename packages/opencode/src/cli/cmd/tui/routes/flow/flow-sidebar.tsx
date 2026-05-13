@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, Show, onMount } from "solid-js"
 import { useTheme } from "../../context/theme"
-import { MOCK_PRDS, GITLAB_CONFIG, buildCreateBranchPrompt } from "./config"
-import type { PRDEntry, GitLabRepo } from "./config"
+import { MOCK_PRDS, GITHUB_CONFIG, buildCreateBranchPrompt } from "./config"
+import type { PRDEntry, GitHubRepo } from "./config"
 import { Workflow } from "./workflow"
 import { Log } from "@/util"
 
@@ -18,7 +18,7 @@ export function FlowSidebar(props: {
   onCreateBranch?: (prompt: string) => void
 }) {
   const { theme } = useTheme()
-  const [repos, setRepos] = createSignal<GitLabRepo[]>([])
+  const [repos, setRepos] = createSignal<GitHubRepo[]>([])
   const [reposLoading, setReposLoading] = createSignal(false)
   const [reposError, setReposError] = createSignal<string | undefined>()
   const [prdExpanded, setPrdExpanded] = createSignal(true)
@@ -26,25 +26,25 @@ export function FlowSidebar(props: {
   const [workflowExpanded, setWorkflowExpanded] = createSignal(true)
 
   onMount(() => {
-    fetchGitLabRepos()
+    fetchGitHubRepos()
   })
 
-  async function fetchGitLabRepos() {
+  async function fetchGitHubRepos() {
     setReposLoading(true)
     setReposError(undefined)
     try {
-      const url = `${GITLAB_CONFIG.baseUrl}${GITLAB_CONFIG.apiPath}?${GITLAB_CONFIG.params}`
+      const url = `${GITHUB_CONFIG.baseUrl}${GITHUB_CONFIG.apiPath}?${GITHUB_CONFIG.params}`
       const response = await fetch(url, {
-        headers: { "PRIVATE-TOKEN": GITLAB_CONFIG.token },
+        headers: { Authorization: `Bearer ${GITHUB_CONFIG.token}` },
       })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const data = (await response.json()) as GitLabRepo[]
+      const data = (await response.json()) as GitHubRepo[]
       setRepos(data)
-      log.info("fetched gitlab repos", { count: data.length })
+      log.info("fetched github repos", { count: data.length })
     } catch (err) {
       const msg = String(err)
       setReposError(msg)
-      log.error("failed to fetch gitlab repos", { error: msg })
+      log.error("failed to fetch github repos", { error: msg })
     } finally {
       setReposLoading(false)
     }
@@ -127,7 +127,7 @@ export function FlowSidebar(props: {
           >
             <text fg={theme.text}>{repoExpanded() ? "▼" : "▶"}</text>
             <text fg={theme.text}>
-              <b>GitLab</b>
+              <b>GitHub</b>
             </text>
             <text fg={theme.textMuted}>({repos().length})</text>
           </box>
@@ -147,7 +147,7 @@ export function FlowSidebar(props: {
               </Show>
 
               <For each={repos()}>
-                {(repo: GitLabRepo) => (
+                {(repo: GitHubRepo) => (
                   <box
                     paddingLeft={2}
                     paddingX={1}
@@ -156,20 +156,20 @@ export function FlowSidebar(props: {
                     gap={1}
                     onMouseUp={() =>
                       props.onSelectedRepoChange?.(
-                        props.selectedRepo === repo.path_with_namespace ? undefined : repo.path_with_namespace,
+                        props.selectedRepo === repo.full_name ? undefined : repo.full_name,
                       )
                     }
                   >
                     <text
-                      fg={props.selectedRepo === repo.path_with_namespace ? theme.accent : theme.text}
+                      fg={props.selectedRepo === repo.full_name ? theme.accent : theme.text}
                     >
-                      {props.selectedRepo === repo.path_with_namespace ? "●" : "○"}
+                      {props.selectedRepo === repo.full_name ? "●" : "○"}
                     </text>
                     <text
-                      fg={props.selectedRepo === repo.path_with_namespace ? theme.accent : theme.text}
+                      fg={props.selectedRepo === repo.full_name ? theme.accent : theme.text}
                       wrapMode="none"
                     >
-                      {repo.path_with_namespace}
+                      {repo.full_name}
                     </text>
                   </box>
                 )}
