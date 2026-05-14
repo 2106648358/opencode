@@ -112,7 +112,7 @@ export const layer = Layer.effect(
       if (!all.length) return
 
       const diffs = yield* computeDiff({ messages: all }).pipe(
-        Effect.catchAll((error) =>
+        Effect.catch((error) =>
           Effect.sync(() => {
             log.error("[SESSION_DIFF] computeDiff failed", { sessionID: input.sessionID, error: String(error) })
             return [] as Snapshot.FileDiff[]

@@ -25,15 +25,19 @@ export const MOCK_PRDS: PRDEntry[] = [
   { id: "5", name: "PRD-005", title: "数据中台建设" },
 ]
 
+function getGitHubToken() {
+  return process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? ""
+}
+
 export const GITHUB_CONFIG = {
   baseUrl: "https://api.github.com",
-  token: "",
+  get token() { return getGitHubToken() },
   apiPath: "/user/repos",
   params: "per_page=100&sort=updated&type=all",
 }
 
 export const FLOW_STEPS: FlowStep[] = [
-  { key: "step1", label: "根据PRD+仓库地址+知识库，生成技术方�?, templateName: "flow-step1" },
+  { key: "step1", label: "根据PRD+仓库地址+知识库，生成技术方案", templateName: "flow-step1" },
   { key: "step2", label: "根据技术方案生成spec-change", templateName: "flow-step2" },
   { key: "step3", label: "根据change分别生成design/task", templateName: "flow-step3" },
   { key: "step4", label: "根据task生成代码", templateName: "flow-step4" },
@@ -44,15 +48,15 @@ export function buildCreateBranchPrompt(repoPath: string, prdTitle?: string) {
   const tokenUrl = `https://${GITHUB_CONFIG.token}@github.com/${repoPath}.git`
   const prdContext = prdTitle ? `PRD: ${prdTitle}\n` : ""
   return `## 任务
-�?GitHub 仓库 ${repoPath} 创建工作树，基于 dev 创建特性分支并设置为当前工作区�?
+为 GitHub 仓库 ${repoPath} 创建工作树，基于 dev 创建特性分支并设置为当前工作区。
 
 ${prdContext}## 要求
-1. 使用 git clone ${tokenUrl} 克隆�?./${repoDir}（如本地已有�?pull 更新�?
+1. 使用 git clone ${tokenUrl} 克隆到 ./${repoDir}（如本地已有则 pull 更新）
 2. 使用 git worktree add 创建一个新的工作树，分支名按以下规则自动生成：flow/{PRD特点}-{仓库简称}-{MMDD}
-3. 新分支基�?dev 分支创建
+3. 新分支基于 dev 分支创建
 4. 将工作树目录设置为当前工作区
 
 ## 说明
-- 使用 git worktree 而非直接 clone，以便后续针对同一仓库的多个特性并行开�?
+- 使用 git worktree 而非直接 clone，以便后续针对同一仓库的多个特性并行开发
 - 工作树目录命名建议：./${repoDir}-work-{分支名}`
 }
