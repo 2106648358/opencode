@@ -108,11 +108,19 @@ export const layer = Layer.effect(
       messageID: MessageID
     }) {
       const all = yield* sessions.messages({ sessionID: input.sessionID })
+      log.info("[SESSION_DIFF] summarize messages loaded", { sessionID: input.sessionID, messageCount: all.length })
       if (!all.length) return
 
-      const diffs = yield* computeDiff({ messages: all })
+      const diffs = yield* computeDiff({ messages: all }).pipe(
+        Effect.catchAll((error) =>
+          Effect.sync(() => {
+            log.error("[SESSION_DIFF] computeDiff failed", { sessionID: input.sessionID, error: String(error) })
+            return [] as Snapshot.FileDiff[]
+          }),
+        ),
+      )
       /** 会话 diff 计算完成：文件数 + 行数 */
-      log.info("session summary computed", {
+      log.info("[SESSION_DIFF] session summary computed", {
         sessionID: input.sessionID,
         diffs: diffs.length,
         additions: diffs.reduce((sum, x) => sum + x.additions, 0),
@@ -129,7 +137,7 @@ export const layer = Layer.effect(
         },
       })
       /** diffs 已持久化到 session 表 */
-      log.info("session summary persisted", { sessionID: input.sessionID })
+      log.info("[SESSION_DIFF] session summary persisted", { sessionID: input.sessionID })
       yield* storage.write(["session_diff", input.sessionID], diffs).pipe(Effect.ignore)
       yield* bus.publish(Session.Event.Diff, { sessionID: input.sessionID, diff: diffs })
 

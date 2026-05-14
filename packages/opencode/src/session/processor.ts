@@ -179,6 +179,12 @@ export const layer: Layer.Layer<
       ) {
         const match = yield* readToolCall(toolCallID)
         if (!match || match.part.state.status !== "running") return
+        log.info("[TOOL_DIFF] tool completed", {
+          toolCallID,
+          toolName: match.part.tool,
+          hasDiff: !!output.metadata?.diff,
+          diffLength: output.metadata?.diff?.length ?? 0,
+        })
         yield* session.updatePart({
           ...match.part,
           state: {
@@ -388,6 +394,7 @@ export const layer: Layer.Layer<
               }
               ctx.snapshot = undefined
             }
+            log.info("[SESSION_DIFF] forking summarize from processor finish-step", { sessionID: ctx.sessionID })
             yield* summary
               .summarize({
                 sessionID: ctx.sessionID,

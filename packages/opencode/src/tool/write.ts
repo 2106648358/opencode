@@ -14,6 +14,9 @@ import { Instance } from "../project/instance"
 import { trimDiff } from "./edit"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import * as Bom from "@/util/bom"
+import { Log } from "@/util"
+
+const log = Log.create({ service: "tool.write" })
 
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
 
@@ -50,6 +53,7 @@ export const WriteTool = Tool.define(
           const contentNew = next.text
 
           const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, contentNew))
+          log.info("[TOOL_DIFF] write diff generated", { file: filepath, diffLength: diff.length })
           yield* ctx.ask({
             permission: "edit",
             patterns: [path.relative(Instance.worktree, filepath)],
@@ -88,6 +92,7 @@ export const WriteTool = Tool.define(
             output += `\n\nLSP errors detected in other files:\n${block}`
           }
 
+          log.info("[TOOL_DIFF] write returning", { file: filepath })
           return {
             title: path.relative(Instance.worktree, filepath),
             metadata: {

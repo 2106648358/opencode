@@ -1413,8 +1413,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               })
             }
 
-            if (step === 1)
+            if (step === 1) {
+              log.info("[SESSION_DIFF] forking summarize from prompt step=1", { sessionID })
               yield* summary.summarize({ sessionID, messageID: lastUser.id }).pipe(Effect.ignore, Effect.forkIn(scope))
+            }
 
             if (step > 1 && lastFinished) {
               for (const m of msgs) {

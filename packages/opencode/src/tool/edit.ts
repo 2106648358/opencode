@@ -17,7 +17,10 @@ import { Instance } from "../project/instance"
 import { Snapshot } from "@/snapshot"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
+import { Log } from "@/util"
 import * as Bom from "@/util/bom"
+
+const log = Log.create({ service: "tool.edit" })
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
@@ -187,6 +190,7 @@ export const EditTool = Tool.define(
               diagnostics: {},
             },
           })
+          log.info("[TOOL_DIFF] edit diff set via ctx.metadata", { file: filePath, diffLength: diff.length })
 
           let output = "Edit applied successfully."
           yield* lsp.touchFile(filePath, "document")
@@ -195,6 +199,7 @@ export const EditTool = Tool.define(
           const block = LSP.Diagnostic.report(filePath, diagnostics[normalizedFilePath] ?? [])
           if (block) output += `\n\nLSP errors detected in this file, please fix:\n${block}`
 
+          log.info("[TOOL_DIFF] edit returning", { file: filePath, hasDiff: !!diff, diffLength: diff?.length ?? 0 })
           return {
             metadata: {
               diagnostics,
