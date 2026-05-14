@@ -39,7 +39,6 @@ import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command
 import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogConsoleOrg } from "@tui/component/dialog-console-org"
-import { DialogAIStats } from "@tui/component/dialog-ai-stats"
 import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
@@ -222,8 +221,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
   const promptRef = usePromptRef()
   const routes: RouteMap = new Map()
   const [routeRev, setRouteRev] = createSignal(0)
-  const [statsHover, setStatsHover] = createSignal(false)
-  const [aiStats, setAiStats] = createSignal(false)
   const routeView = (name: string) => {
     routeRev()
     return routes.get(name)?.at(-1)?.render
@@ -772,16 +769,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         dialog.clear()
       },
     },
-    {
-      title: "AI Contribution Stats",
-      value: "ai.stats",
-      keybind: "ai_stats",
-      category: "Developer",
-      slash: { name: "stats" },
-      onSelect: () => {
-        setAiStats(true)
-      },
-    },
   ])
 
   event.on(TuiEvent.CommandExecute.type, (evt) => {
@@ -897,9 +884,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
     >
 
-      <Show when={aiStats()}>
-        <DialogAIStats onClose={() => setAiStats(false)} />
-      </Show>
       <Show when={Flag.OPENCODE_SHOW_TTFD}>
         <TimeToFirstDraw />
       </Show>
@@ -916,28 +900,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       {plugin()}
       <TuiPluginRuntime.Slot name="app" />
       <StartupLoading ready={ready} />
-      {/** AI统计按钮：在统计对话框打开或有其他弹窗时隐藏 */}
-      <Show when={!aiStats() && dialog.stack.length === 0}>
-        <box
-          position="absolute"
-          bottom={1}
-          right={1}
-          zIndex={2000}
-          onMouseUp={() => setAiStats(true)}
-        >
-          <box
-            paddingLeft={2}
-            paddingRight={2}
-            paddingTop={0}
-            paddingBottom={0}
-            onMouseOver={() => setStatsHover(true)}
-            onMouseOut={() => setStatsHover(false)}
-            backgroundColor={statsHover() ? theme.backgroundElement : theme.backgroundPanel}
-          >
-            <text fg={statsHover() ? theme.text : theme.textMuted}>AI 统计</text>
-          </box>
-        </box>
-      </Show>
     </box>
   )
 }

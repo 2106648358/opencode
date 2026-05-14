@@ -81,7 +81,7 @@ export const layer = Layer.effect(
       log.info("session revert computed", { sessionID: input.sessionID, diffs: diffs.length, additions: diffs.reduce((s, x) => s + x.additions, 0), deletions: diffs.reduce((s, x) => s + x.deletions, 0) })
       yield* storage.write(["session_diff", input.sessionID], diffs).pipe(Effect.ignore)
       yield* bus.publish(Session.Event.Diff, { sessionID: input.sessionID, diff: diffs })
-      // 将 diffs 写入 session 表的 summary_diffs 列，供 getContribStats() 读取
+      // 将 diffs 写入 session 表的 summary_diffs 列
       yield* sessions.setRevert({
         sessionID: input.sessionID,
         revert: rev,

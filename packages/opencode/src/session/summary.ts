@@ -126,7 +126,7 @@ export const layer = Layer.effect(
         additions: diffs.reduce((sum, x) => sum + x.additions, 0),
         deletions: diffs.reduce((sum, x) => sum + x.deletions, 0),
       })
-      // 将 diffs 写入 session 表的 summary_diffs 列，供 getContribStats() 读取
+      // 将 diffs 写入 session 表的 summary_diffs 列
       yield* sessions.setSummary({
         sessionID: input.sessionID,
         summary: {

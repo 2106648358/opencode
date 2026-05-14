@@ -52,7 +52,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       config: Config
       session: Session[]
       session_all: Session[]
-      contrib: object | null
       session_status: {
         [sessionID: string]: SessionStatus
       }
@@ -95,7 +94,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       provider_default: {},
       session: [],
       session_all: [],
-      contrib: null,
       session_status: {},
       session_diff: {},
       todo: {},
@@ -239,10 +237,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               }),
             )
           }
-          // Refresh contrib stats
-          sdk.fetch(`${sdk.url}/experimental/contrib/stats`).then((r: any) => r.json()).then((data) => {
-            setStore("contrib", reconcile(data))
-          }).catch(() => {})
           break
         }
 
@@ -385,14 +379,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         .list({ start: start })
         .then((x) => (x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id)))
 
-      // Fetch all project sessions for stats (no directory filter)
       const sessionAllPromise = sdk.client.session
         .list()
         .then((x) => (x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id)))
         .catch(() => [] as Session[])
-
-      // Fetch AI contribution stats
-      const contribStatsPromise = sdk.fetch(`${sdk.url}/experimental/contrib/stats`).then((r: any) => r.json()).catch(() => null)
 
       // blocking - include session.list when continuing a session
       const providersPromise = sdk.client.config.providers({ workspace }, { throwOnError: true })
@@ -454,11 +444,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           void Promise.all([
             ...(args.continue ? [] : [sessionListPromise.then((sessions) => setStore("session", reconcile(sessions)))]),
             sessionAllPromise.then((sessions) => setStore("session_all", reconcile(sessions))),
-            contribStatsPromise.then((data) => {
-              /** 前端接收 AI 贡献统计数据 */
-              console.log("[tui] contrib stats received:", JSON.stringify(data))
-              setStore("contrib", reconcile(data))
-            }),
             consoleStatePromise.then((consoleState) => setStore("console_state", reconcile(consoleState))),
             sdk.client.command.list({ workspace }).then((x) => setStore("command", reconcile(x.data ?? []))),
             sdk.client.lsp.status({ workspace }).then((x) => setStore("lsp", reconcile(x.data ?? []))),
