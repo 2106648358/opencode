@@ -25,6 +25,7 @@ export const BUILTIN_SKILLS: Array<{ name: string; description: string; content:
   { name: "openspec-bulk-archive-change", description: "Archive multiple completed changes at once", content: loadSkill("openspec-bulk-archive-change"), location: path.join(SKILLS_DIR, "openspec-bulk-archive-change", "SKILL.md") },
   { name: "openspec-onboard", description: "Guided onboarding for OpenSpec", content: loadSkill("openspec-onboard"), location: path.join(SKILLS_DIR, "openspec-onboard", "SKILL.md") },
   { name: "openspec-schema-init", description: "Interactive wizard to create a custom OpenSpec schema with auto-generated slash commands", content: loadSkill("openspec-schema-init"), location: path.join(SKILLS_DIR, "openspec-schema-init", "SKILL.md") },
+  { name: "prd-tech-solution", description: "根据 f.json 和 b.json 生成技术方案文档", content: loadSkill("prd-tech-solution"), location: path.join(SKILLS_DIR, "prd-tech-solution", "SKILL.md") },
 ]
 
 export const BUILTIN_SKILLS_DIR = SKILLS_DIR
