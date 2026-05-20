@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, Show, onMount } from "solid-js"
 import { useTheme } from "../../context/theme"
-import { MOCK_PRDS, GITHUB_CONFIG, buildCreateBranchPrompt } from "./config"
-import type { PRDEntry, GitHubRepo } from "./config"
+import { MOCK_PRDS, GITHUB_CONFIG, buildCreateBranchPrompt, loadPRDContent } from "./config"
+import type { PRDEntry, GitHubRepo, PRDContent } from "./config"
 import { Workflow } from "./workflow"
 import { Log } from "@/util"
 
@@ -10,10 +10,13 @@ const log = Log.create({ service: "tui.flow.sidebar" })
 export function FlowSidebar(props: {
   overlay?: boolean
   selectedPRD?: string
+  selectedPRDContent?: PRDContent
+  checkedFiles?: Set<string>
+  onCheckPRD?: (prdID: string | undefined, content?: PRDContent) => void
+  onCheckFile?: (prdID: string, fileKey: "f" | "b", checked: boolean) => void
   selectedRepo?: string
   prdTitle?: string
   repoPath?: string
-  onSelectedPRDChange?: (id: string | undefined) => void
   onSelectedRepoChange?: (repo: string | undefined) => void
   onCreateBranch?: (prompt: string) => void
 }) {
@@ -65,6 +68,15 @@ export function FlowSidebar(props: {
     props.onCreateBranch?.(prompt)
   }
 
+  const isFileChecked = (prdID: string, fileKey: "f" | "b") =>
+    props.selectedPRD === prdID && props.checkedFiles?.has(fileKey)
+
+  const areBothChecked = (prdID: string) =>
+    isFileChecked(prdID, "f") && isFileChecked(prdID, "b")
+
+  const isEitherChecked = (prdID: string) =>
+    isFileChecked(prdID, "f") || isFileChecked(prdID, "b")
+
   return (
     <box
       backgroundColor={theme.backgroundPanel}
@@ -100,21 +112,85 @@ export function FlowSidebar(props: {
           <Show when={prdExpanded()}>
             <For each={prdList()}>
               {(prd: PRDEntry) => (
-                <box
-                  paddingLeft={2}
-                  paddingX={1}
-                  paddingY={0}
-                  flexDirection="row"
-                  gap={1}
-                  onMouseUp={() => props.onSelectedPRDChange?.(props.selectedPRD === prd.id ? undefined : prd.id)}
-                >
-                  <text fg={props.selectedPRD === prd.id ? theme.accent : theme.text}>
-                    {props.selectedPRD === prd.id ? "●" : "○"}
-                  </text>
-                  <text fg={props.selectedPRD === prd.id ? theme.accent : theme.text}>
-                    {prd.name}: {prd.title}
-                  </text>
-                </box>
+                <>
+                  <box
+                    paddingLeft={2}
+                    paddingX={1}
+                    paddingY={0}
+                    flexDirection="row"
+                    gap={1}
+                    onMouseUp={async (evt: any) => {
+                      evt.stopPropagation()
+                      if (props.selectedPRD === prd.id) {
+                        log.info("prd uncheck", { id: prd.id })
+                        props.onCheckPRD?.(undefined, undefined)
+                      } else {
+                        const content = await loadPRDContent(prd.id) as PRDContent | undefined
+                        log.info("prd check", { id: prd.id, hasContent: !!content })
+                        props.onCheckPRD?.(prd.id, content)
+                      }
+                    }}
+                  >
+                    <text fg={areBothChecked(prd.id) ? theme.accent : theme.textMuted}>
+                      {areBothChecked(prd.id) ? "☑" : isEitherChecked(prd.id) ? "⊞" : "☐"}
+                    </text>
+                    <text fg={props.selectedPRD === prd.id ? theme.text : theme.textMuted}>
+                      {prd.name}: {prd.title}
+                    </text>
+                  </box>
+
+                  <box paddingLeft={4} paddingX={1} paddingY={0} flexDirection="column" gap={0}>
+                    <box
+                      flexDirection="row"
+                      gap={1}
+                      onMouseUp={(evt: any) => {
+                        evt.stopPropagation()
+                        const checked = isFileChecked(prd.id, "f")
+                        log.info("file check toggle", { prdID: prd.id, file: "f", currentlyChecked: checked, selectedPRD: props.selectedPRD })
+                        if (!checked && props.selectedPRD !== prd.id) {
+                          loadPRDContent(prd.id).then((content) => {
+                            props.onCheckPRD?.(prd.id, content as PRDContent | undefined)
+                            props.onCheckFile?.(prd.id, "f", true)
+                          })
+                        } else {
+                          props.onCheckFile?.(prd.id, "f", !checked)
+                        }
+                      }}
+                    >
+                      <text fg={isFileChecked(prd.id, "f") ? theme.accent : theme.textMuted}>
+                        {isFileChecked(prd.id, "f") ? "☑" : "☐"}
+                      </text>
+                      <text fg={isFileChecked(prd.id, "f") ? theme.text : theme.textMuted}>
+                        f.json
+                      </text>
+                    </box>
+
+                    <box
+                      flexDirection="row"
+                      gap={1}
+                      onMouseUp={(evt: any) => {
+                        evt.stopPropagation()
+                        const checked = isFileChecked(prd.id, "b")
+                        log.info("file check toggle", { prdID: prd.id, file: "b", currentlyChecked: checked, selectedPRD: props.selectedPRD })
+                        if (!checked && props.selectedPRD !== prd.id) {
+                          loadPRDContent(prd.id).then((content) => {
+                            props.onCheckPRD?.(prd.id, content as PRDContent | undefined)
+                            props.onCheckFile?.(prd.id, "b", true)
+                          })
+                        } else {
+                          props.onCheckFile?.(prd.id, "b", !checked)
+                        }
+                      }}
+                    >
+                      <text fg={isFileChecked(prd.id, "b") ? theme.accent : theme.textMuted}>
+                        {isFileChecked(prd.id, "b") ? "☑" : "☐"}
+                      </text>
+                      <text fg={isFileChecked(prd.id, "b") ? theme.text : theme.textMuted}>
+                        b.json
+                      </text>
+                    </box>
+                  </box>
+                </>
               )}
             </For>
           </Show>
@@ -203,13 +279,13 @@ export function FlowSidebar(props: {
           </box>
 
           <Show when={workflowExpanded()}>
-            <Workflow prdTitle={props.prdTitle} repoPath={props.repoPath} />
+            <Workflow prdTitle={props.prdTitle} prdJsonContent={props.selectedPRDContent} prdID={props.selectedPRD} checkedFiles={props.checkedFiles} repoPath={props.repoPath} />
           </Show>
         </box>
 
       <box flexShrink={0}>
         <box height={1} backgroundColor={theme.border} marginBottom={1} />
-        <text fg={theme.textMuted}>PRD: {props.selectedPRD ? "✓" : "—"}</text>
+        <text fg={theme.textMuted}>PRD: {props.selectedPRD ? props.selectedPRDContent ? (() => { const c = []; if (isFileChecked(props.selectedPRD!, "f")) c.push("f.json"); if (isFileChecked(props.selectedPRD!, "b")) c.push("b.json"); return c.length > 0 ? `✓ (${c.join(" + ")})` : "✓"; })() : "✓" : "—"}</text>
         <text fg={theme.textMuted}>Repo: {props.selectedRepo ? "✓" : "—"}</text>
       </box>
     </box>

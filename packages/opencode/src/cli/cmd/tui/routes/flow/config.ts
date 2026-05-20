@@ -2,7 +2,10 @@ export type PRDEntry = {
   id: string
   name: string
   title: string
+  file: string
 }
+
+export type PRDContent = { f: Record<string, unknown>; b: Record<string, unknown> }
 
 /** GitHub 仓库 API 返回类型 */
 export type GitHubRepo = {
@@ -18,12 +21,27 @@ export type FlowStep = {
 }
 
 export const MOCK_PRDS: PRDEntry[] = [
-  { id: "1", name: "PRD-001", title: "商城系统重构" },
-  { id: "2", name: "PRD-002", title: "用户中心V2" },
-  { id: "3", name: "PRD-003", title: "订单管理优化" },
-  { id: "4", name: "PRD-004", title: "支付网关升级" },
-  { id: "5", name: "PRD-005", title: "数据中台建设" },
+  { id: "1", name: "PRD-001", title: "客户公海-高级筛选", file: "prds/PRD-001" },
+  { id: "2", name: "PRD-002", title: "用户中心V2", file: "prds/PRD-002" },
+  { id: "3", name: "PRD-003", title: "订单管理优化", file: "prds/PRD-003" },
+  { id: "4", name: "PRD-004", title: "支付网关升级", file: "prds/PRD-004" },
+  { id: "5", name: "PRD-005", title: "数据中台建设", file: "prds/PRD-005" },
 ]
+
+const PRD_LOADERS: Record<string, () => Promise<{ default: PRDContent }>> = {
+  "1": () => import("./prds/PRD-001/index"),
+  "2": () => import("./prds/PRD-002/index"),
+  "3": () => import("./prds/PRD-003/index"),
+  "4": () => import("./prds/PRD-004/index"),
+  "5": () => import("./prds/PRD-005/index"),
+}
+
+export async function loadPRDContent(id: string): Promise<PRDContent | undefined> {
+  const loader = PRD_LOADERS[id]
+  if (!loader) return undefined
+  const mod = await loader()
+  return mod.default
+}
 
 function getGitHubToken() {
   return process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? ""

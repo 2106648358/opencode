@@ -75,6 +75,7 @@ import * as Editor from "../../util/editor"
 import stripAnsi from "strip-ansi"
 import { FlowSidebar } from "../flow/flow-sidebar"
 import { MOCK_PRDS } from "../flow/config"
+import type { PRDContent } from "../flow/config"
 import { Log } from "@/util"
 
 const flowLog = Log.create({ service: "tui.flow" })
@@ -145,6 +146,8 @@ export function Session() {
   const isFlowMode = createMemo(() => route.mode === "flow")
   const [flowSeenIds, setFlowSeenIds] = createSignal<Set<string>>(new Set())
   const [selectedPRD, setSelectedPRD] = createSignal<string | undefined>()
+  const [selectedPRDContent, setSelectedPRDContent] = createSignal<PRDContent | undefined>()
+  const [checkedFiles, setCheckedFiles] = createSignal<Set<string>>(new Set())
   const [selectedRepo, setSelectedRepo] = createSignal<string | undefined>()
   const prdTitle = createMemo(() => {
     const id = selectedPRD()
@@ -1273,10 +1276,26 @@ export function Session() {
             <Match when={wide() && isFlowMode()}>
               <FlowSidebar
                 selectedPRD={selectedPRD()}
+                selectedPRDContent={selectedPRDContent()}
+                checkedFiles={checkedFiles()}
                 selectedRepo={selectedRepo()}
                 prdTitle={prdTitle()}
                 repoPath={selectedRepo()}
-                onSelectedPRDChange={setSelectedPRD}
+                onCheckPRD={(id, content) => {
+                  setSelectedPRD(id)
+                  setSelectedPRDContent(content)
+                  setCheckedFiles(id ? new Set<string>(["f", "b"]) : new Set<string>())
+                }}
+                onCheckFile={(prdID, fileKey, checked) => {
+                  if (!selectedPRD()) {
+                    // auto-load happens inside flow-sidebar
+                    return
+                  }
+                  const next = new Set(checkedFiles())
+                  if (checked) next.add(fileKey)
+                  else next.delete(fileKey)
+                  setCheckedFiles(next)
+                }}
                 onSelectedRepoChange={setSelectedRepo}
                 onCreateBranch={handleCreateBranch}
               />
@@ -1294,10 +1313,23 @@ export function Session() {
                 <FlowSidebar
                   overlay
                   selectedPRD={selectedPRD()}
+                  selectedPRDContent={selectedPRDContent()}
+                  checkedFiles={checkedFiles()}
                   selectedRepo={selectedRepo()}
                   prdTitle={prdTitle()}
                   repoPath={selectedRepo()}
-                  onSelectedPRDChange={setSelectedPRD}
+                  onCheckPRD={(id, content) => {
+                    setSelectedPRD(id)
+                    setSelectedPRDContent(content)
+                  setCheckedFiles(id ? new Set<string>(["f", "b"]) : new Set<string>())
+                  }}
+                  onCheckFile={(prdID, fileKey, checked) => {
+                    if (!selectedPRD()) return
+                    const next = new Set(checkedFiles())
+                    if (checked) next.add(fileKey)
+                    else next.delete(fileKey)
+                    setCheckedFiles(next)
+                  }}
                   onSelectedRepoChange={setSelectedRepo}
                   onCreateBranch={handleCreateBranch}
                 />

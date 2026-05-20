@@ -1,0 +1,68 @@
+﻿{
+  "logicStore": {
+    "logic_unclaimed_general_hover": {
+      "interactions": [
+        {
+          "trigger": "ON_HOVER",
+          "action": "SHOW_TOOLTIP",
+          "tooltipText": "近X天本人和其他销售未认领过该线索"
+        }
+      ]
+    },
+    "logic_unclaimed_self_menu": {
+      "feature_spec": {
+        "function": "用于筛选在近X天内未被当前销售认领过的客户。",
+        "location": "客户公海-高级-添加条件-客户维度-其他"
+      },
+      "interactions": [
+        {
+          "trigger": "ON_HOVER",
+          "action": "SHOW_TOOLTIP",
+          "tooltipText": "近X天本人未认领过该线索"
+        }
+      ]
+    },
+    "logic_unclaimed_self_input": {
+      "input_config": {
+        "inputType": "NUMBER",
+        "supportCustomInput": true,
+        "defaultValue": 1,
+        "unit": "天",
+        "minValue": 1,
+        "maxValue": 90
+      },
+      "validation_rules": [
+        {
+          "rule_id": "V1",
+          "condition": "value === null || isNaN(value)",
+          "is_valid": false,
+          "effect": "IGNORE"
+        },
+        {
+          "rule_id": "V2",
+          "condition": "value <= 0",
+          "is_valid": false,
+          "effect": "BLOCK",
+          "error_action": "SHOW_TOAST",
+          "error_message": "请输入大于0的天数"
+        },
+        {
+          "rule_id": "V3",
+          "condition": "value > 90",
+          "is_valid": false,
+          "effect": "BLOCK",
+          "error_action": "SHOW_TOAST",
+          "error_message": "输入天数超出范围（90天），请重新输入"
+        }
+      ],
+      "filter_logic": {
+        "trigger_condition": "ON_BLUR_OR_ENTER_IF_VALID",
+        "description": "筛选近x天内未被当前销售认领过的客户",
+        "expected_results": [
+          "返回符合全部筛选条件的客户列表",
+          "排除近x天内被当前销售认领过的客户"
+        ]
+      }
+    }
+  }
+}

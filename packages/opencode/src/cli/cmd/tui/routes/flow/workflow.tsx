@@ -1,114 +1,106 @@
-import { createMemo, For, createSignal, onMount } from "solid-js"
-import { useTheme, selectedForeground } from "../../context/theme"
+import { For, onMount } from "solid-js"
+import { useTheme } from "../../context/theme"
 import { usePromptRef } from "../../context/prompt"
 import { FLOW_STEPS } from "./config"
-import type { FlowStep } from "./config"
+import { MOCK_PRDS } from "./config"
+import type { PRDContent } from "./config"
+import type { PromptInfo } from "../../component/prompt/history"
 import * as TemplateFile from "@/template/file"
 import * as Repo from "@/template/repo"
 import { seedFlowTemplates } from "@/template/seed"
 import { Log } from "@/util"
+import path from "path"
+import { fileURLToPath } from "url"
 
 const log = Log.create({ service: "tui.flow.workflow" })
 
-export function Workflow(props: { prdTitle?: string; repoPath?: string }) {
+export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent; prdID?: string; checkedFiles?: Set<string>; repoPath?: string }) {
   const { theme } = useTheme()
   const promptRef = usePromptRef()
-  const [activeStep, setActiveStep] = createSignal(0)
-  const [completed, setCompleted] = createSignal<Set<number>>(new Set())
-  const [templateStatus, setTemplateStatus] = createSignal<Record<string, boolean>>({})
 
   onMount(async () => {
     await seedFlowTemplates(FLOW_STEPS)
-    const status: Record<string, boolean> = {}
-    for (const step of FLOW_STEPS) {
-      const content = await loadTemplateContent(step.templateName)
-      status[step.key] = content !== undefined
-    }
-    setTemplateStatus(status)
-    log.info("workflow mounted, template status", { status })
+    log.info("workflow mounted")
   })
 
-  const handleStepClick = async (step: FlowStep, index: number) => {
-    log.info("step clicked", { key: step.key, index, activeStep: activeStep() })
-    if (index !== activeStep()) {
-      log.info("step not active, ignoring", { key: step.key, index, active: activeStep() })
-      return
-    }
+  const handleStepClick = async (step: (typeof FLOW_STEPS)[number], index: number) => {
+    log.info("step clicked", { key: step.key, index })
 
     try {
-      const loaded = await loadTemplateContent(step.templateName)
-      let promptContent = loaded ?? step.label
+      const parts: PromptInfo["parts"] = []
 
-      if (props.prdTitle || props.repoPath) {
-        const contextParts: string[] = []
-        if (props.prdTitle) contextParts.push(`PRD: ${props.prdTitle}`)
-        if (props.repoPath) contextParts.push(`仓库地址: ${props.repoPath}`)
-        promptContent = `${contextParts.join("\n")}\n\n${promptContent}`
-      }
+      if (index === 0) {
+        let input = props.repoPath
+          ? `/prd-tech-solution 仓库地址: ${props.repoPath}`
+          : "/prd-tech-solution"
 
-      const ref = promptRef.current
-      if (ref) {
-        ref.set({ input: promptContent, parts: [] })
-      }
+        if (props.prdJsonContent) {
+          const { f, b } = props.prdJsonContent
+          const prdDir = props.prdID ? MOCK_PRDS.find((p) => p.id === props.prdID)?.file : undefined
+          const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 
-      const next = index + 1
-      if (next < FLOW_STEPS.length) {
-        setActiveStep(next)
-        setCompleted((prev) => new Set(prev).add(index))
+          const checked = props.checkedFiles
+          log.info("injecting files", { checkedFiles: checked ? [...checked] : undefined, prdID: props.prdID })
+
+          const jsonify = (data: object, filename: string) => {
+            const jsonStr = JSON.stringify(data)
+            const base64 = Buffer.from(jsonStr, "utf-8").toString("base64")
+            const absPath = prdDir ? path.join(moduleDir, prdDir, filename) : filename
+            const virtualText = `@${absPath}`
+            input = `${input}\n${virtualText} `
+            const start = input.length - virtualText.length - 1
+            parts.push({
+              type: "file",
+              mime: "text/plain",
+              filename,
+              url: `data:text/plain;base64,${base64}`,
+              source: {
+                type: "file" as const,
+                path: absPath,
+                text: { start, end: start + virtualText.length, value: virtualText },
+              },
+            })
+          }
+
+          if (!props.checkedFiles || props.checkedFiles.has("f")) jsonify(f, "f.json")
+          if (!props.checkedFiles || props.checkedFiles.has("b")) jsonify(b, "b.json")
+        }
+
+        const ref = promptRef.current
+        if (ref) ref.set({ input, parts })
       } else {
-        setCompleted((prev) => new Set(prev).add(index))
+        const loaded = await loadTemplateContent(step.templateName)
+        let stepContent = loaded ?? step.label
+
+        if (props.repoPath)
+          stepContent = `仓库地址: ${props.repoPath}\n\n${stepContent}`
+
+        const ref = promptRef.current
+        if (ref) ref.set({ input: stepContent, parts })
       }
     } catch (err) {
       log.error("failed to handle step click", { error: String(err) })
     }
   }
 
-  const stepColors = createMemo(() => {
-    return FLOW_STEPS.map((_, i) => {
-      if (i === activeStep()) return selectedForeground(theme)
-      if (completed().has(i)) return theme.textMuted
-      return theme.textMuted
-    })
-  })
-
-  const stepIndicators = createMemo(() => {
-    return FLOW_STEPS.map((_, i) => {
-      if (i === activeStep()) return "●"
-      if (completed().has(i)) return "✓"
-      return "○"
-    })
-  })
-
   return (
     <box flexDirection="column">
       <For each={FLOW_STEPS}>
-        {(step, index) => {
-          const isActive = createMemo(() => index() === activeStep())
-          const isDone = createMemo(() => completed().has(index()))
-          const hasTemplate = createMemo(() => templateStatus()[step.key] ?? false)
-
-          return (
-            <box
-              onMouseUp={(evt: any) => {
-                evt.stopPropagation()
-                handleStepClick(step, index())
-              }}
-              paddingX={2}
-              paddingY={1}
-              flexDirection="row"
-              gap={1}
-              backgroundColor={isActive() ? theme.backgroundElement : undefined}
-            >
-              <text fg={stepColors()[index()]}>{stepIndicators()[index()]}</text>
-              <text fg={hasTemplate() ? theme.success : theme.textMuted}>
-                {hasTemplate() ? "✓" : "✗"}
-              </text>
-              <text fg={isActive() ? selectedForeground(theme) : stepColors()[index()]}>
-                {step.label}
-              </text>
-            </box>
-          )
-        }}
+        {(step, index) => (
+          <box
+            onMouseUp={(evt: any) => {
+              evt.stopPropagation()
+              handleStepClick(step, index())
+            }}
+            paddingX={2}
+            paddingY={1}
+            flexDirection="row"
+            gap={1}
+          >
+            <text fg={theme.textMuted}>→</text>
+            <text fg={theme.text}>{step.label}</text>
+          </box>
+        )}
       </For>
     </box>
   )

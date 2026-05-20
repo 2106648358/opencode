@@ -107,11 +107,7 @@ export function HomeSidebar(props: { overlay?: boolean }) {
 
       <box flexShrink={0} paddingTop={1} flexDirection="column">
         <text fg={theme.textMuted}>
-          <span style={{ fg: theme.success }}>•</span> <b>Open</b>
-          <span style={{ fg: theme.text }}>
-            <b>Code</b>
-          </span>{" "}
-          {InstallationVersion}
+          <span style={{ fg: theme.success }}>•</span> <b>edycode</b>
         </text>
         <text fg={theme.textMuted}>
           {keybind.print("sidebar_toggle")} toggle · {keybind.print("session_list")} list

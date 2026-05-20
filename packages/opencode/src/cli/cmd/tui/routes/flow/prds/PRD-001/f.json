@@ -1,0 +1,169 @@
+﻿{
+  "pages": [
+    {
+      "id": "page_001",
+      "name": "客户公海-高级筛选",
+      "type": "CANVAS",
+      "elements": [
+        {
+          "id": "node_top_header",
+          "name": "Top_Header_Action_Bar",
+          "type": "FRAME",
+          "layoutMode": "HORIZONTAL",
+          "children": [
+            { "type": "TEXT", "characters": "选择计划拨打时间:" },
+            { "type": "INPUT", "placeholder": "请选择日期" },
+            { "type": "TEXT", "characters": "★ 推荐模板" },
+            { "type": "BUTTON", "characters": "收 一键..." }
+          ]
+        },
+        {
+          "id": "node_tabs",
+          "name": "Tab_Navigation",
+          "type": "FRAME",
+          "layoutMode": "HORIZONTAL",
+          "children": [
+            { "type": "TAB", "characters": "招聘客户", "isActive": true },
+            { "type": "TAB", "characters": "重点行业客户", "isActive": false },
+            { "type": "TAB", "characters": "放宽条件的行业客户", "isActive": false },
+            { "type": "TAB", "characters": "新增手机号的客户", "isActive": false },
+            { "type": "TAB", "characters": "未触达客户", "isActive": false }
+          ]
+        },
+        {
+          "id": "node_main_content",
+          "name": "Main_Filter_Content",
+          "type": "FRAME",
+          "layoutMode": "HORIZONTAL",
+          "children": [
+            {
+              "id": "node_sidebar_filters",
+              "name": "Filter_Categories_Sidebar",
+              "type": "FRAME",
+              "layoutMode": "VERTICAL",
+              "children": [
+                { "type": "TAG", "characters": "是否28城" },
+                { "type": "TAG", "characters": "是否名单客户" },
+                { "type": "TAG", "characters": "客户状态" },
+                { "type": "TAG", "characters": "营业状态" },
+                { "type": "TAG", "characters": "是否被执行" },
+                { "type": "TAG", "characters": "招聘活跃度" },
+                { "type": "TAG", "characters": "是否开启分公司等过滤" },
+                { "type": "TAG", "characters": "是否KP" },
+                { "type": "TAG", "characters": "号码接通频率" },
+                { "type": "INPUT", "placeholder": "搜索..." },
+                { "type": "BUTTON", "characters": "+ 添加条件" }
+              ]
+            },
+            {
+              "id": "node_main_filter_panel",
+              "name": "Filter_Options_Panel",
+              "type": "FRAME",
+              "layoutMode": "VERTICAL",
+              "children": [
+                { "type": "RADIO_GROUP", "options": ["全部", "28城内", "28城外"], "selected": "28城内" },
+                { "type": "RADIO_GROUP", "options": ["全部", "是", "否"], "selected": "是" },
+                { "type": "TAG_GROUP", "options": ["未授信", "已授信", "满一年全退租"] },
+                { "type": "RADIO_GROUP", "options": ["全部", "在营", "非在营"], "selected": "在营" },
+                { "type": "RADIO_GROUP", "options": ["全部", "是", "否"], "selected": "否" },
+                { "type": "COMPLEX_INPUT", "characters": "近 [30] 天招聘≥ [1]" },
+                { "type": "RADIO_GROUP", "options": ["是", "否"], "selected": "否" },
+                { "type": "RADIO_GROUP", "options": ["全部", "是", "否"], "selected": "是" },
+                { "type": "SELECT", "selected": "近15天没有通话记录" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "node_dropdown_overlay",
+          "name": "Dropdown_Cascader_Menu_Overlay",
+          "type": "FRAME",
+          "layoutMode": "HORIZONTAL",
+          "children": [
+            {
+              "id": "node_level1_menu",
+              "type": "FRAME",
+              "children": [
+                { "type": "TEXT", "characters": "客户维度-常用 >" },
+                { "type": "TEXT", "characters": "客户维度-公司经营情况 >" },
+                { "type": "TEXT", "characters": "客户维度-其他 >", "isActive": true },
+                { "type": "TEXT", "characters": "客户维度-过滤 >" },
+                { "type": "TEXT", "characters": "号码维度 >" }
+              ]
+            },
+            {
+              "id": "node_level2_menu",
+              "type": "FRAME",
+              "children": [
+                { "type": "TEXT", "characters": "回归原因" },
+                { "type": "TEXT", "characters": "回归前位置" },
+                { "type": "TEXT", "characters": "是否注册组分发" },
+                {
+                  "id": "node_l2_item_unclaimed_general",
+                  "type": "TEXT",
+                  "characters": "近X天未认领过",
+                  "logicId": "logic_unclaimed_general_hover"
+                },
+                {
+                  "id": "node_l2_item_unclaimed_self",
+                  "type": "TEXT",
+                  "characters": "近x天未被自己认领",
+                  "isActive": true,
+                  "logicId": "logic_unclaimed_self_menu"
+                },
+                { "type": "TEXT", "characters": "客户未被触达时长" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "node_dynamic_input_bar",
+          "name": "Dynamic_Filter_Inputs_Bar",
+          "type": "FRAME",
+          "layoutMode": "HORIZONTAL",
+          "children": [
+            { "type": "TEXT", "characters": "近x天未被自己认领:" },
+            {
+              "id": "node_input_days",
+              "type": "INPUT",
+              "placeholder": "1",
+              "logicId": "logic_unclaimed_self_input"
+            },
+            { "type": "TEXT", "characters": "公司关键词命中:" },
+            { "type": "INPUT", "placeholder": "公司名称关键词" },
+            { "type": "TEXT", "characters": "公司关键词过滤:" },
+            { "type": "INPUT", "placeholder": "公司名称关键词" },
+            { "type": "RADIO_GROUP", "label": "号码过滤:", "options": ["是", "否"], "selected": "否" }
+          ]
+        },
+        {
+          "id": "node_bottom_actions",
+          "name": "Bottom_Actions_and_Info",
+          "type": "FRAME",
+          "layoutMode": "HORIZONTAL",
+          "children": [
+            { "type": "TEXT", "characters": "已选客户数 0 个，号码 0 个" },
+            { "type": "BUTTON", "characters": "批量认领" },
+            { "type": "BUTTON", "characters": "批量认领并加入草稿箱" }
+          ]
+        },
+        {
+          "id": "node_data_table_header",
+          "name": "Data_Table_Header",
+          "type": "FRAME",
+          "layoutMode": "HORIZONTAL",
+          "children": [
+            { "type": "CHECKBOX" },
+            { "type": "TEXT", "characters": "客户" },
+            { "type": "TEXT", "characters": "客户标签" },
+            { "type": "TEXT", "characters": "联系人" },
+            { "type": "TEXT", "characters": "号码" },
+            { "type": "TEXT", "characters": "号码等级" },
+            { "type": "TEXT", "characters": "号码标签" },
+            { "type": "TEXT", "characters": "最近操作" }
+          ]
+        }
+      ]
+    }
+  ]
+}
