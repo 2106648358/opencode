@@ -1,7 +1,7 @@
 import fs from "fs"
 import path from "path"
 
-const SKILLS_DIR = path.join(import.meta.dirname, "..", "..", "builtin", "skills")
+const SKILLS_DIR = path.join(import.meta.dirname, "builtin", "skills")
 
 function loadSkill(dirName: string) {
   const filePath = path.join(SKILLS_DIR, dirName, "SKILL.md")
