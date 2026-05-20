@@ -71,12 +71,6 @@ export function FlowSidebar(props: {
   const isFileChecked = (prdID: string, fileKey: "f" | "b") =>
     props.selectedPRD === prdID && props.checkedFiles?.has(fileKey)
 
-  const areBothChecked = (prdID: string) =>
-    isFileChecked(prdID, "f") && isFileChecked(prdID, "b")
-
-  const isEitherChecked = (prdID: string) =>
-    isFileChecked(prdID, "f") || isFileChecked(prdID, "b")
-
   return (
     <box
       backgroundColor={theme.backgroundPanel}
@@ -112,13 +106,9 @@ export function FlowSidebar(props: {
           <Show when={prdExpanded()}>
             <For each={prdList()}>
               {(prd: PRDEntry) => (
-                <>
-                  <box
-                    paddingLeft={2}
-                    paddingX={1}
-                    paddingY={0}
-                    flexDirection="row"
-                    gap={1}
+                <box paddingLeft={2} paddingX={1} paddingY={0} flexDirection="row" gap={1} marginBottom={1}>
+                  <text
+                    fg={props.selectedPRD === prd.id ? theme.text : theme.textMuted}
                     onMouseUp={async (evt: any) => {
                       evt.stopPropagation()
                       if (props.selectedPRD === prd.id) {
@@ -131,66 +121,43 @@ export function FlowSidebar(props: {
                       }
                     }}
                   >
-                    <text fg={theme.textMuted}>
-                      {areBothChecked(prd.id) ? "☑" : isEitherChecked(prd.id) ? "⊞" : "☐"}
-                    </text>
-                    <text fg={theme.textMuted}>
-                      {prd.name}: {prd.title}
-                    </text>
-                  </box>
-
-                  <box paddingLeft={4} paddingX={1} paddingY={0} flexDirection="column" gap={0}>
-                    <box
-                      flexDirection="row"
-                      gap={1}
-                      onMouseUp={(evt: any) => {
-                        evt.stopPropagation()
-                        const checked = isFileChecked(prd.id, "f")
-                        log.info("file check toggle", { prdID: prd.id, file: "f", currentlyChecked: checked, selectedPRD: props.selectedPRD })
-                        if (!checked && props.selectedPRD !== prd.id) {
-                          loadPRDContent(prd.id).then((content) => {
-                            props.onCheckPRD?.(prd.id, content as PRDContent | undefined)
-                            props.onCheckFile?.(prd.id, "f", true)
-                          })
-                        } else {
-                          props.onCheckFile?.(prd.id, "f", !checked)
-                        }
-                      }}
-                    >
-                      <text fg={theme.textMuted}>
-                        {isFileChecked(prd.id, "f") ? "☑" : "☐"}
-                      </text>
-                      <text fg={theme.textMuted}>
-                        f.json
-                      </text>
-                    </box>
-
-                    <box
-                      flexDirection="row"
-                      gap={1}
-                      onMouseUp={(evt: any) => {
-                        evt.stopPropagation()
-                        const checked = isFileChecked(prd.id, "b")
-                        log.info("file check toggle", { prdID: prd.id, file: "b", currentlyChecked: checked, selectedPRD: props.selectedPRD })
-                        if (!checked && props.selectedPRD !== prd.id) {
-                          loadPRDContent(prd.id).then((content) => {
-                            props.onCheckPRD?.(prd.id, content as PRDContent | undefined)
-                            props.onCheckFile?.(prd.id, "b", true)
-                          })
-                        } else {
-                          props.onCheckFile?.(prd.id, "b", !checked)
-                        }
-                      }}
-                    >
-                      <text fg={theme.textMuted}>
-                        {isFileChecked(prd.id, "b") ? "☑" : "☐"}
-                      </text>
-                      <text fg={theme.textMuted}>
-                        b.json
-                      </text>
-                    </box>
-                  </box>
-                </>
+                    {prd.name}: {prd.title}
+                  </text>
+                  <text
+                    fg={isFileChecked(prd.id, "f") ? theme.success : theme.textMuted}
+                    onMouseUp={(evt: any) => {
+                      evt.stopPropagation()
+                      const checked = isFileChecked(prd.id, "f")
+                      if (!checked && props.selectedPRD !== prd.id) {
+                        loadPRDContent(prd.id).then((content) => {
+                          props.onCheckPRD?.(prd.id, content as PRDContent | undefined)
+                          props.onCheckFile?.(prd.id, "f", true)
+                        })
+                      } else {
+                        props.onCheckFile?.(prd.id, "f", !checked)
+                      }
+                    }}
+                  >
+                    [{isFileChecked(prd.id, "f") ? "x" : " "}]f
+                  </text>
+                  <text
+                    fg={isFileChecked(prd.id, "b") ? theme.success : theme.textMuted}
+                    onMouseUp={(evt: any) => {
+                      evt.stopPropagation()
+                      const checked = isFileChecked(prd.id, "b")
+                      if (!checked && props.selectedPRD !== prd.id) {
+                        loadPRDContent(prd.id).then((content) => {
+                          props.onCheckPRD?.(prd.id, content as PRDContent | undefined)
+                          props.onCheckFile?.(prd.id, "b", true)
+                        })
+                      } else {
+                        props.onCheckFile?.(prd.id, "b", !checked)
+                      }
+                    }}
+                  >
+                    [{isFileChecked(prd.id, "b") ? "x" : " "}]b
+                  </text>
+                </box>
               )}
             </For>
           </Show>
