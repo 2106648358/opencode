@@ -131,10 +131,10 @@ export function FlowSidebar(props: {
                       }
                     }}
                   >
-                    <text fg={areBothChecked(prd.id) ? theme.accent : theme.textMuted}>
+                    <text fg={theme.textMuted}>
                       {areBothChecked(prd.id) ? "☑" : isEitherChecked(prd.id) ? "⊞" : "☐"}
                     </text>
-                    <text fg={props.selectedPRD === prd.id ? theme.text : theme.textMuted}>
+                    <text fg={theme.textMuted}>
                       {prd.name}: {prd.title}
                     </text>
                   </box>
@@ -157,10 +157,10 @@ export function FlowSidebar(props: {
                         }
                       }}
                     >
-                      <text fg={isFileChecked(prd.id, "f") ? theme.accent : theme.textMuted}>
+                      <text fg={theme.textMuted}>
                         {isFileChecked(prd.id, "f") ? "☑" : "☐"}
                       </text>
-                      <text fg={isFileChecked(prd.id, "f") ? theme.text : theme.textMuted}>
+                      <text fg={theme.textMuted}>
                         f.json
                       </text>
                     </box>
@@ -182,10 +182,10 @@ export function FlowSidebar(props: {
                         }
                       }}
                     >
-                      <text fg={isFileChecked(prd.id, "b") ? theme.accent : theme.textMuted}>
+                      <text fg={theme.textMuted}>
                         {isFileChecked(prd.id, "b") ? "☑" : "☐"}
                       </text>
-                      <text fg={isFileChecked(prd.id, "b") ? theme.text : theme.textMuted}>
+                      <text fg={theme.textMuted}>
                         b.json
                       </text>
                     </box>
@@ -236,15 +236,10 @@ export function FlowSidebar(props: {
                       )
                     }
                   >
-                    <text
-                      fg={props.selectedRepo === repo.full_name ? theme.accent : theme.text}
-                    >
+                    <text fg={theme.text}>
                       {props.selectedRepo === repo.full_name ? "●" : "○"}
                     </text>
-                    <text
-                      fg={props.selectedRepo === repo.full_name ? theme.accent : theme.text}
-                      wrapMode="none"
-                    >
+                    <text fg={theme.text} wrapMode="none">
                       {repo.full_name}
                     </text>
                   </box>

@@ -1,13 +1,10 @@
-import { For, onMount } from "solid-js"
+import { For } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { usePromptRef } from "../../context/prompt"
 import { FLOW_STEPS } from "./config"
 import { MOCK_PRDS } from "./config"
 import type { PRDContent } from "./config"
 import type { PromptInfo } from "../../component/prompt/history"
-import * as TemplateFile from "@/template/file"
-import * as Repo from "@/template/repo"
-import { seedFlowTemplates } from "@/template/seed"
 import { Log } from "@/util"
 import path from "path"
 import { fileURLToPath } from "url"
@@ -18,66 +15,113 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
   const { theme } = useTheme()
   const promptRef = usePromptRef()
 
-  onMount(async () => {
-    await seedFlowTemplates(FLOW_STEPS)
-    log.info("workflow mounted")
-  })
-
   const handleStepClick = async (step: (typeof FLOW_STEPS)[number], index: number) => {
     log.info("step clicked", { key: step.key, index })
 
     try {
       const parts: PromptInfo["parts"] = []
+      let input = ""
+
+      const prdDir = props.prdID ? MOCK_PRDS.find((p) => p.id === props.prdID)?.file : undefined
+      const moduleDir = path.dirname(fileURLToPath(import.meta.url))
+
+      const jsonify = (data: object, filename: string) => {
+        const jsonStr = JSON.stringify(data)
+        const base64 = Buffer.from(jsonStr, "utf-8").toString("base64")
+        const absPath = prdDir ? path.join(moduleDir, prdDir, filename) : filename
+        const virtualText = `@${absPath}`
+        input = `${input}\n${virtualText} `
+        const start = input.length - virtualText.length - 1
+        parts.push({
+          type: "file",
+          mime: "text/plain",
+          filename,
+          url: `data:text/plain;base64,${base64}`,
+          source: {
+            type: "file" as const,
+            path: absPath,
+            text: { start, end: start + virtualText.length, value: virtualText },
+          },
+        })
+      }
 
       if (index === 0) {
-        let input = props.repoPath
+        input = props.repoPath
           ? `/prd-tech-solution 仓库地址: ${props.repoPath}`
           : "/prd-tech-solution"
 
-        if (props.prdJsonContent) {
+        if (props.prdJsonContent && props.prdID) {
           const { f, b } = props.prdJsonContent
-          const prdDir = props.prdID ? MOCK_PRDS.find((p) => p.id === props.prdID)?.file : undefined
-          const moduleDir = path.dirname(fileURLToPath(import.meta.url))
-
-          const checked = props.checkedFiles
-          log.info("injecting files", { checkedFiles: checked ? [...checked] : undefined, prdID: props.prdID })
-
-          const jsonify = (data: object, filename: string) => {
-            const jsonStr = JSON.stringify(data)
-            const base64 = Buffer.from(jsonStr, "utf-8").toString("base64")
-            const absPath = prdDir ? path.join(moduleDir, prdDir, filename) : filename
-            const virtualText = `@${absPath}`
-            input = `${input}\n${virtualText} `
-            const start = input.length - virtualText.length - 1
-            parts.push({
-              type: "file",
-              mime: "text/plain",
-              filename,
-              url: `data:text/plain;base64,${base64}`,
-              source: {
-                type: "file" as const,
-                path: absPath,
-                text: { start, end: start + virtualText.length, value: virtualText },
-              },
-            })
-          }
-
           if (!props.checkedFiles || props.checkedFiles.has("f")) jsonify(f, "f.json")
           if (!props.checkedFiles || props.checkedFiles.has("b")) jsonify(b, "b.json")
         }
-
-        const ref = promptRef.current
-        if (ref) ref.set({ input, parts })
-      } else {
-        const loaded = await loadTemplateContent(step.templateName)
-        let stepContent = loaded ?? step.label
-
-        if (props.repoPath)
-          stepContent = `仓库地址: ${props.repoPath}\n\n${stepContent}`
-
-        const ref = promptRef.current
-        if (ref) ref.set({ input: stepContent, parts })
+      } else if (index === 1) {
+        input = "/openspec-propose 前端：根据 f.json 和 API 接口设计生成前端代码"
+        if (props.prdJsonContent) jsonify(props.prdJsonContent.f, "f.json")
+      } else if (index === 2) {
+        input = "/openspec-propose 后端：根据技术方案文档实现后端业务逻辑"
+        if (props.prdJsonContent) jsonify(props.prdJsonContent.b, "b.json")
+        if (props.prdID) {
+          const docName = `PRD-${props.prdID.padStart(3, "0")}-backend-technical-solution.md`
+          try {
+            const docPath = path.join(process.cwd(), docName)
+            const docContent = await Bun.file(docPath).text()
+            if (docContent) {
+              const base64 = Buffer.from(docContent, "utf-8").toString("base64")
+              const virtualText = `@${docName}`
+              input = `${input}\n${virtualText} `
+              const start = input.length - virtualText.length - 1
+              parts.push({
+                type: "file",
+                mime: "text/plain",
+                filename: docName,
+                url: `data:text/plain;base64,${base64}`,
+                source: {
+                  type: "file" as const,
+                  path: docPath,
+                  text: { start, end: start + virtualText.length, value: virtualText },
+                },
+              })
+            }
+          } catch {
+            log.warn("tech solution doc not found", { name: docName })
+          }
+        }
+      } else if (index === 3) {
+        input = "/openspec-apply-change"
+        if (props.prdJsonContent) jsonify(props.prdJsonContent.b, "b.json")
+        if (props.prdID) {
+          const docName = `PRD-${props.prdID.padStart(3, "0")}-backend-technical-solution.md`
+          try {
+            const docPath = path.join(process.cwd(), docName)
+            const docContent = await Bun.file(docPath).text()
+            if (docContent) {
+              const base64 = Buffer.from(docContent, "utf-8").toString("base64")
+              const virtualText = `@${docName}`
+              input = `${input}\n${virtualText} `
+              const start = input.length - virtualText.length - 1
+              parts.push({
+                type: "file",
+                mime: "text/plain",
+                filename: docName,
+                url: `data:text/plain;base64,${base64}`,
+                source: {
+                  type: "file" as const,
+                  path: docPath,
+                  text: { start, end: start + virtualText.length, value: virtualText },
+                },
+              })
+            }
+          } catch {
+            log.warn("tech solution doc not found", { name: docName })
+          }
+        }
+      } else if (index === 4) {
+        input = "/openspec-archive-change"
       }
+
+      const ref = promptRef.current
+      if (ref) ref.set({ input, parts })
     } catch (err) {
       log.error("failed to handle step click", { error: String(err) })
     }
@@ -104,31 +148,4 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
       </For>
     </box>
   )
-}
-
-async function loadTemplateContent(templateName: string): Promise<string | undefined> {
-  try {
-    const localDir = await getLocalDir()
-    const localTemplates = await TemplateFile.listTemplates(localDir)
-    const found = localTemplates.find((t) => t.name === templateName)
-    if (found) return found.content
-
-    const repos = await Repo.loadRepos()
-    for (const repo of repos) {
-      const dir = Repo.repoDir(repo)
-      const templates = await TemplateFile.listTemplates(dir)
-      const hit = templates.find((t) => t.name === templateName)
-      if (hit) return hit.content
-    }
-    return undefined
-  } catch (err) {
-    log.warn("failed to load template", { templateName, error: String(err) })
-    return undefined
-  }
-}
-
-async function getLocalDir(): Promise<string> {
-  const path = await import("path")
-  const { Global } = await import("@opencode-ai/core/global")
-  return path.join(Global.Path.data, "templates", "local")
 }

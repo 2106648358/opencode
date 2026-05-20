@@ -55,10 +55,11 @@ export const GITHUB_CONFIG = {
 }
 
 export const FLOW_STEPS: FlowStep[] = [
-  { key: "step1", label: "根据PRD+仓库地址+知识库，生成技术方案", templateName: "flow-step1" },
-  { key: "step2", label: "根据技术方案生成spec-change", templateName: "flow-step2" },
-  { key: "step3", label: "根据change分别生成design/task", templateName: "flow-step3" },
-  { key: "step4", label: "根据task生成代码", templateName: "flow-step4" },
+  { key: "step1", label: "获取技术方案", templateName: "flow-step1" },
+  { key: "step2", label: "前端：一次性创建所有 OpenSpec 工件", templateName: "flow-step2" },
+  { key: "step3", label: "后端：一次性创建所有 OpenSpec 工件", templateName: "flow-step3" },
+  { key: "step4", label: "根据 OpenSpec 工件生成代码", templateName: "flow-step4" },
+  { key: "step5", label: "归档已完成变更", templateName: "flow-step5" },
 ]
 
 export function buildCreateBranchPrompt(repoPath: string, prdTitle?: string) {
