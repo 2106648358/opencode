@@ -164,7 +164,7 @@ const targets = singleFlag
 
 await $`rm -rf dist`
 
-const skillFiles = await Array.fromAsync(new Bun.Glob("builtin/skills/**/SKILL.md").scan({ cwd: dir }))
+const skillFiles = await Array.fromAsync(new Bun.Glob("src/openspec/builtin/skills/**/SKILL.md").scan({ cwd: dir }))
 
 const skillsGenContent = skillFiles
   .map((file) => `import ${JSON.stringify(`./${file}`)} with { type: "file" };`)
