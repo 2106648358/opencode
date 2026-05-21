@@ -56,10 +56,10 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
           if (!props.checkedFiles || props.checkedFiles.has("b")) jsonify(b, "b.json")
         }
       } else if (index === 1) {
-        input = `前端：根据 f.json 和 API 接口设计生成前端代码\n\n${input}`
+        input = `${input}\n\n根据技术方案文档中的\n##前端完整 f.json\n##接口设计\n生成前端所有工件`
         if (props.prdJsonContent) jsonify(props.prdJsonContent.f, "f.json")
       } else if (index === 2) {
-        input = `后端：根据技术方案文档实现后端业务逻辑\n\n${input}`
+        input = `${input}\n\n根据技术文档的 后端技术方案 生成后端所有工件`
         if (props.prdJsonContent) jsonify(props.prdJsonContent.b, "b.json")
         if (props.prdID) {
           const docName = `PRD-${props.prdID.padStart(3, "0")}-backend-technical-solution.md`
