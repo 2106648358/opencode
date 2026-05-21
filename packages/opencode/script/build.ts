@@ -164,7 +164,11 @@ const targets = singleFlag
 
 await $`rm -rf dist`
 
-const skillFiles = await Array.fromAsync(new Bun.Glob("src/openspec/builtin/skills/**/SKILL.md").scan({ cwd: dir }))
+// Copy builtin skills to package root so Bun embeds them at /$bunfs/root/builtin/skills/
+await $`rm -rf builtin`
+await $`cp -r src/openspec/builtin/skills builtin/skills`
+
+const skillFiles = await Array.fromAsync(new Bun.Glob("builtin/skills/**/SKILL.md").scan({ cwd: dir }))
 
 const skillsGenContent = skillFiles
   .map((file) => `import ${JSON.stringify(`./${file}`)} with { type: "file" };`)
@@ -265,6 +269,8 @@ for (const item of targets) {
   )
   binaries[name] = Script.version
 }
+
+await $`rm -rf builtin`
 
 if (Script.release) {
   for (const key of Object.keys(binaries)) {
