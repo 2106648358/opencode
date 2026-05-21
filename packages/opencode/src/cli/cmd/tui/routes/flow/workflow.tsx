@@ -20,7 +20,7 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
 
     try {
       const parts: PromptInfo["parts"] = []
-      let input = ""
+      let input = step.skillContent
 
       const prdDir = props.prdID ? MOCK_PRDS.find((p) => p.id === props.prdID)?.file : undefined
       const moduleDir = path.dirname(fileURLToPath(import.meta.url))
@@ -46,9 +46,9 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
       }
 
       if (index === 0) {
-        input = props.repoPath
-          ? `/prd-tech-solution 仓库地址: ${props.repoPath}`
-          : "/prd-tech-solution"
+        if (props.repoPath) {
+          input = `${input}\n\n## 仓库地址\n${props.repoPath}`
+        }
 
         if (props.prdJsonContent && props.prdID) {
           const { f, b } = props.prdJsonContent
@@ -56,10 +56,10 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
           if (!props.checkedFiles || props.checkedFiles.has("b")) jsonify(b, "b.json")
         }
       } else if (index === 1) {
-        input = "/openspec-propose 前端：根据 f.json 和 API 接口设计生成前端代码"
+        input = `前端：根据 f.json 和 API 接口设计生成前端代码\n\n${input}`
         if (props.prdJsonContent) jsonify(props.prdJsonContent.f, "f.json")
       } else if (index === 2) {
-        input = "/openspec-propose 后端：根据技术方案文档实现后端业务逻辑"
+        input = `后端：根据技术方案文档实现后端业务逻辑\n\n${input}`
         if (props.prdJsonContent) jsonify(props.prdJsonContent.b, "b.json")
         if (props.prdID) {
           const docName = `PRD-${props.prdID.padStart(3, "0")}-backend-technical-solution.md`
@@ -88,7 +88,6 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
           }
         }
       } else if (index === 3) {
-        input = "/openspec-apply-change"
         if (props.prdJsonContent) jsonify(props.prdJsonContent.b, "b.json")
         if (props.prdID) {
           const docName = `PRD-${props.prdID.padStart(3, "0")}-backend-technical-solution.md`
@@ -117,7 +116,6 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
           }
         }
       } else if (index === 4) {
-        input = "/openspec-archive-change"
       }
 
       const ref = promptRef.current
