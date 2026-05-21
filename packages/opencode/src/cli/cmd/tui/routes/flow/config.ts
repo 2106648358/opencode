@@ -24,7 +24,7 @@ export type FlowStep = {
 const SKILL_PRD_TECH_SOLUTION = `你是一名资深架构师，拥有丰富的前后端开发经验
 
 ## 任务
-根据 f.json 和 b.json 生成技术方案文档，前端采用vue3+JS+element；后端采用java8 + springboot；
+根据 f.json 和 b.json 生成一份技术方案文档，前端采用vue3+JS+element；后端采用java8 + springboot；
 前端开发者将直接根据f.json 开发，后端开发者需要借助你的技术设计方案如er结构/接口/业务逻辑等进行开发
 
 ## 技术文档格式

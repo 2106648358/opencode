@@ -168,10 +168,17 @@ await $`rm -rf dist`
 await $`rm -rf builtin`
 await $`mkdir -p builtin`
 await $`cp -r src/openspec/builtin/skills builtin/skills`
+await $`cp -r src/openspec/builtin/schemas builtin/schemas`
 
 const skillFiles = await Array.fromAsync(new Bun.Glob("builtin/skills/**/SKILL.md").scan({ cwd: dir }))
 
 const skillsGenContent = skillFiles
+  .map((file) => `import ${JSON.stringify(`./${file}`)} with { type: "file" };`)
+  .join("\n")
+
+const schemaFiles = await Array.fromAsync(new Bun.Glob("builtin/schemas/**/*").scan({ cwd: dir }))
+
+const schemasGenContent = schemaFiles
   .map((file) => `import ${JSON.stringify(`./${file}`)} with { type: "file" };`)
   .join("\n")
 
@@ -224,6 +231,7 @@ for (const item of targets) {
     files: {
       ...(embeddedFileMap ? { "opencode-web-ui.gen.ts": embeddedFileMap } : {}),
       "skills.gen.ts": skillsGenContent,
+      "schemas.gen.ts": schemasGenContent,
     },
     entrypoints: [
       "./src/index.ts",
@@ -231,6 +239,7 @@ for (const item of targets) {
       workerPath,
       ...(embeddedFileMap ? ["opencode-web-ui.gen.ts"] : []),
       "skills.gen.ts",
+      "schemas.gen.ts",
     ],
     define: {
       OPENCODE_VERSION: `'${Script.version}'`,

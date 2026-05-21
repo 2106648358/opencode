@@ -32,7 +32,7 @@ export type SchemaInfo = {
   path: string
 }
 
-const BUILTIN_SCHEMAS_DIR = path.join(import.meta.dirname, "..", "builtin", "schemas")
+export const BUILTIN_SCHEMAS_DIR = path.join(import.meta.dirname, "builtin", "schemas")
 
 export function parseSchema(raw: string): SchemaDefinition {
   const parsed = parseYaml(raw) as Record<string, unknown>

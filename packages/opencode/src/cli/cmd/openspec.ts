@@ -3,6 +3,7 @@ import {
   listSchemas,
   loadSchema,
   loadTemplate,
+  BUILTIN_SCHEMAS_DIR,
 } from "../../openspec/schema"
 import {
   createChange,
@@ -167,7 +168,7 @@ export const OpenSpecCommand = {
                   if (await Bun.file(path.join(destDir, "schema.yaml")).exists() && !sargs.force)
                     throw new Error(`Schema "${toName}" already exists. Use --force.`)
                   await Bun.write(path.join(destDir, "schema.yaml"),
-                    (await Bun.file(path.join(import.meta.dirname, "..", "..", "openspec", "builtin", "schemas", fromName, "schema.yaml")).text()).replace(/^name:.*/m, `name: ${toName}`))
+                    (await Bun.file(path.join(BUILTIN_SCHEMAS_DIR, fromName, "schema.yaml")).text()).replace(/^name:.*/m, `name: ${toName}`))
                   for (const artifact of schema.artifacts) {
                     const tpl = await loadTemplate(fromName, artifact.template, projectDir(), { exists: async (p: string) => await Bun.file(p).exists() })
                     await Bun.write(path.join(destDir, "templates", artifact.template), tpl)
