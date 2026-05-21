@@ -166,6 +166,7 @@ await $`rm -rf dist`
 
 // Copy builtin skills to package root so Bun embeds them at /$bunfs/root/builtin/skills/
 await $`rm -rf builtin`
+await $`mkdir -p builtin`
 await $`cp -r src/openspec/builtin/skills builtin/skills`
 
 const skillFiles = await Array.fromAsync(new Bun.Glob("builtin/skills/**/SKILL.md").scan({ cwd: dir }))
