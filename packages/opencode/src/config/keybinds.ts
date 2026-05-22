@@ -23,6 +23,7 @@ const KeybindsSchema = Schema.Struct({
   scrollbar_toggle: keybind("none", "Toggle session scrollbar"),
   username_toggle: keybind("none", "Toggle username visibility"),
   status_view: keybind("<leader>s", "View status"),
+  stats_view: keybind("<leader>k", "View code generation statistics"),
   session_export: keybind("<leader>x", "Export session to editor"),
   session_new: keybind("<leader>n", "Create a new session"),
   session_list: keybind("<leader>l", "List all sessions"),

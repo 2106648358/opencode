@@ -32,6 +32,7 @@ import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel } from "@tui/component/dialog-model"
 import { useConnected } from "@tui/component/use-connected"
 import { DialogMcp } from "@tui/component/dialog-mcp"
+import { DialogStats } from "@tui/component/dialog-stats"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
@@ -613,6 +614,19 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         },
       ]
       : []),
+    {
+      title: "Code stats",
+      keybind: "stats_view",
+      value: "opencode.stats",
+      suggested: route.data.type === "session",
+      slash: {
+        name: "stats",
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogStats />)
+      },
+      category: "System",
+    },
     {
       title: "View status",
       keybind: "status_view",
