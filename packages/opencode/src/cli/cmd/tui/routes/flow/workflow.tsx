@@ -2,11 +2,13 @@ import { For } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { usePromptRef } from "../../context/prompt"
 import { FLOW_STEPS } from "./config"
-import { MOCK_PRDS } from "./config"
 import type { PRDContent } from "./config"
 import type { PromptInfo } from "../../component/prompt/history"
 import { Log } from "@/util"
 import path from "path"
+import os from "os"
+import { mkdirSync } from "fs"
+import { pathToFileURL } from "url"
 
 const log = Log.create({ service: "tui.flow.workflow" })
 
@@ -21,23 +23,27 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
       const parts: PromptInfo["parts"] = []
       let input = step.skillContent
 
-      const prdDir = props.prdID ? MOCK_PRDS.find((p) => p.id === props.prdID)?.file : undefined
-
-      const jsonify = (data: object, filename: string) => {
-        const jsonStr = JSON.stringify(data)
-        const base64 = Buffer.from(jsonStr, "utf-8").toString("base64")
-        const absPath = prdDir ? path.posix.join("packages/opencode/src/cli/cmd/tui/routes/flow", prdDir, filename) : filename
-        const virtualText = `@${absPath}`
+      const jsonify = async (prdId: string | undefined, filename: string, data: object) => {
+        const dir = prdId
+          ? path.join(os.tmpdir(), "opencode-prds", `PRD-${prdId.padStart(3, "0")}`)
+          : path.join(os.tmpdir(), "opencode-prds")
+        mkdirSync(dir, { recursive: true })
+        const filePath = path.join(dir, filename)
+        if (!(await Bun.file(filePath).exists())) {
+          await Bun.write(filePath, JSON.stringify(data))
+        }
+        const url = pathToFileURL(filePath).href
+        const virtualText = `@${filePath}`
         input = `${input}\n${virtualText} `
         const start = input.length - virtualText.length - 1
         parts.push({
           type: "file",
           mime: "text/plain",
           filename,
-          url: `data:text/plain;base64,${base64}`,
+          url,
           source: {
             type: "file" as const,
-            path: absPath,
+            path: filePath,
             text: { start, end: start + virtualText.length, value: virtualText },
           },
         })
@@ -50,15 +56,15 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
 
         if (props.prdJsonContent && props.prdID) {
           const { f, b } = props.prdJsonContent
-          if (!props.checkedFiles || props.checkedFiles.has("f")) jsonify(f, "f.json")
-          if (!props.checkedFiles || props.checkedFiles.has("b")) jsonify(b, "b.json")
+          if (!props.checkedFiles || props.checkedFiles.has("f")) await jsonify(props.prdID, "f.json", f)
+          if (!props.checkedFiles || props.checkedFiles.has("b")) await jsonify(props.prdID, "b.json", b)
         }
       } else if (index === 1) {
         input = `${input}\n\n根据技术方案文档中的\n##前端完整 f.json\n##接口设计\n生成前端所有工件`
-        if (props.prdJsonContent) jsonify(props.prdJsonContent.f, "f.json")
+        if (props.prdJsonContent) await jsonify(props.prdID, "f.json", props.prdJsonContent.f)
       } else if (index === 2) {
         input = `${input}\n\n根据技术文档的 后端技术方案 生成后端所有工件`
-        if (props.prdJsonContent) jsonify(props.prdJsonContent.b, "b.json")
+        if (props.prdJsonContent) await jsonify(props.prdID, "b.json", props.prdJsonContent.b)
         if (props.prdID) {
           const docName = `PRD-${props.prdID.padStart(3, "0")}-backend-technical-solution.md`
           try {
@@ -86,7 +92,7 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
           }
         }
       } else if (index === 3) {
-        if (props.prdJsonContent) jsonify(props.prdJsonContent.b, "b.json")
+        if (props.prdJsonContent) await jsonify(props.prdID, "b.json", props.prdJsonContent.b)
         if (props.prdID) {
           const docName = `PRD-${props.prdID.padStart(3, "0")}-backend-technical-solution.md`
           try {
