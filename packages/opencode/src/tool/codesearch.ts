@@ -21,13 +21,16 @@ export const Parameters = Schema.Struct({
 export const CodeSearchTool = Tool.define(
   "codesearch",
   Effect.gen(function* () {
+    //异步执行http调用
     const http = yield* HttpClient.HttpClient
 
     return {
       description: DESCRIPTION,
       parameters: Parameters,
+      // excutue 是一个属性，这个属性是一个函数
       execute: (params: { query: string; tokensNum: number }, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          // 异步执行上下文类型中的属性ask，也是一个函数
           yield* ctx.ask({
             permission: "codesearch",
             patterns: [params.query],

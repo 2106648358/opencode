@@ -7,7 +7,6 @@ import type { PRDContent } from "./config"
 import type { PromptInfo } from "../../component/prompt/history"
 import { Log } from "@/util"
 import path from "path"
-import { fileURLToPath } from "url"
 
 const log = Log.create({ service: "tui.flow.workflow" })
 
@@ -23,12 +22,11 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
       let input = step.skillContent
 
       const prdDir = props.prdID ? MOCK_PRDS.find((p) => p.id === props.prdID)?.file : undefined
-      const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 
       const jsonify = (data: object, filename: string) => {
         const jsonStr = JSON.stringify(data)
         const base64 = Buffer.from(jsonStr, "utf-8").toString("base64")
-        const absPath = prdDir ? path.join(moduleDir, prdDir, filename) : filename
+        const absPath = prdDir ? path.posix.join("packages/opencode/src/cli/cmd/tui/routes/flow", prdDir, filename) : filename
         const virtualText = `@${absPath}`
         input = `${input}\n${virtualText} `
         const start = input.length - virtualText.length - 1
