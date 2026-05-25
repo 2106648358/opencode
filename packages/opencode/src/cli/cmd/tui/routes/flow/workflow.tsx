@@ -60,9 +60,11 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
           if (!props.checkedFiles || props.checkedFiles.has("b")) await jsonify(props.prdID, "b.json", b)
         }
       } else if (index === 1) {
-        input = `${input}\n\n根据技术方案文档中的\n##前端完整 f.json\n##接口设计\n生成前端所有工件`
         if (props.prdJsonContent) await jsonify(props.prdID, "f.json", props.prdJsonContent.f)
       } else if (index === 2) {
+        input = `${input}\n\n根据技术方案文档中的\n##前端完整 f.json\n##接口设计\n生成前端所有工件`
+        if (props.prdJsonContent) await jsonify(props.prdID, "f.json", props.prdJsonContent.f)
+      } else if (index === 3) {
         input = `${input}\n\n根据技术文档的 后端技术方案 生成后端所有工件`
         if (props.prdJsonContent) await jsonify(props.prdID, "b.json", props.prdJsonContent.b)
         if (props.prdID) {
@@ -91,7 +93,7 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
             log.warn("tech solution doc not found", { name: docName })
           }
         }
-      } else if (index === 3) {
+      } else if (index === 4) {
         if (props.prdJsonContent) await jsonify(props.prdID, "b.json", props.prdJsonContent.b)
         if (props.prdID) {
           const docName = `PRD-${props.prdID.padStart(3, "0")}-backend-technical-solution.md`
@@ -119,7 +121,7 @@ export function Workflow(props: { prdTitle?: string; prdJsonContent?: PRDContent
             log.warn("tech solution doc not found", { name: docName })
           }
         }
-      } else if (index === 4) {
+      } else if (index === 5) {
       }
 
       const ref = promptRef.current

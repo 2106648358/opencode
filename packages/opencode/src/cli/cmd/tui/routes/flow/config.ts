@@ -226,6 +226,13 @@ This skill supports the "actions on a change" model:
 - **Can be invoked anytime**: Before all artifacts are done (if tasks exist), after partial implementation, interleaved with other actions
 - **Allows artifact updates**: If implementation reveals design issues, suggest updating artifacts - not phase-locked, work fluidly`
 
+const SKILL_GENERATE_FRONTEND_CODE = `根据技术方案文档中的
+##前端完整 f.json
+##接口设计
+采用vue3+JS+element生成前端代码生成前端代码
+##注意
+组件有logicId，代表该组件需要在这个地方触发后端逻辑，但是前端应该提前实现ui效果`
+
 const SKILL_OPENSPEC_ARCHIVE_CHANGE = `Archive a completed change.
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
@@ -325,10 +332,11 @@ export const GITHUB_CONFIG = {
 
 export const FLOW_STEPS: FlowStep[] = [
   { key: "step1", label: "获取技术方案", templateName: "flow-step1", skillContent: SKILL_PRD_TECH_SOLUTION },
-  { key: "step2", label: "前端：一次性创建所有 OpenSpec 工件", templateName: "flow-step2", skillContent: SKILL_OPENSPEC_PROPOSE },
-  { key: "step3", label: "后端：一次性创建所有 OpenSpec 工件", templateName: "flow-step3", skillContent: SKILL_OPENSPEC_PROPOSE },
-  { key: "step4", label: "根据 OpenSpec 工件生成代码", templateName: "flow-step4", skillContent: SKILL_OPENSPEC_APPLY_CHANGE },
-  { key: "step5", label: "归档已完成变更", templateName: "flow-step5", skillContent: SKILL_OPENSPEC_ARCHIVE_CHANGE },
+  { key: "step2", label: "生成前端代码", templateName: "flow-step2", skillContent: SKILL_GENERATE_FRONTEND_CODE },
+  { key: "step3", label: "前端：一次性创建所有 OpenSpec 工件", templateName: "flow-step3", skillContent: SKILL_OPENSPEC_PROPOSE },
+  { key: "step4", label: "后端：一次性创建所有 OpenSpec 工件", templateName: "flow-step4", skillContent: SKILL_OPENSPEC_PROPOSE },
+  { key: "step5", label: "根据 OpenSpec 工件生成代码", templateName: "flow-step5", skillContent: SKILL_OPENSPEC_APPLY_CHANGE },
+  { key: "step6", label: "归档已完成变更", templateName: "flow-step6", skillContent: SKILL_OPENSPEC_ARCHIVE_CHANGE }
 ]
 
 export function buildCreateBranchPrompt(repoPath: string, prdTitle?: string) {
