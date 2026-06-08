@@ -1,3 +1,4 @@
+// edit tool — applies targeted text replacements to files
 // the approaches in this edit tool are sourced from
 // https://github.com/cline/cline/blob/main/evals/diff-edits/diff-apply/diff-06-23-25.ts
 // https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/editCorrector.ts
@@ -68,6 +69,15 @@ export const EditTool = Tool.define(
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          yield* Effect.logInfo("edit tool called").pipe(
+            Effect.annotateLogs({
+              filePath: params.filePath,
+              replaceAll: params.replaceAll ?? false,
+              oldLen: params.oldString.length,
+              newLen: params.newString.length,
+            }),
+          )
+
           if (!params.filePath) {
             throw new Error("filePath is required")
           }
@@ -87,6 +97,9 @@ export const EditTool = Tool.define(
           yield* lock(filePath).withPermits(1)(
             Effect.gen(function* () {
               if (params.oldString === "") {
+                yield* Effect.logInfo("editing file with empty oldString (create/append)").pipe(
+                  Effect.annotateLogs({ filePath }),
+                )
                 const existed = yield* afs.existsSafe(filePath)
                 const source = existed ? yield* Bom.readFile(afs, filePath) : { bom: false, text: "" }
                 const next = Bom.split(params.newString)
@@ -94,6 +107,9 @@ export const EditTool = Tool.define(
                 contentOld = source.text
                 contentNew = next.text
                 diff = trimDiff(createTwoFilesPatch(filePath, filePath, contentOld, contentNew))
+                yield* Effect.logInfo("diff computed (create/append)").pipe(
+                  Effect.annotateLogs({ filePath, diffLen: diff.length }),
+                )
                 yield* ctx.ask({
                   permission: "edit",
                   patterns: [path.relative(Instance.worktree, filePath)],
@@ -118,6 +134,9 @@ export const EditTool = Tool.define(
               const info = yield* afs.stat(filePath).pipe(Effect.catch(() => Effect.succeed(undefined)))
               if (!info) throw new Error(`File ${filePath} not found`)
               if (info.type === "Directory") throw new Error(`Path is a directory, not a file: ${filePath}`)
+              yield* Effect.logInfo("editing file with oldString match").pipe(
+                Effect.annotateLogs({ filePath }),
+              )
               const source = yield* Bom.readFile(afs, filePath)
               contentOld = source.text
 
@@ -136,6 +155,9 @@ export const EditTool = Tool.define(
                   normalizeLineEndings(contentOld),
                   normalizeLineEndings(contentNew),
                 ),
+              )
+              yield* Effect.logInfo("diff computed (oldString match)").pipe(
+                Effect.annotateLogs({ filePath, diffLen: diff.length }),
               )
               yield* ctx.ask({
                 permission: "edit",
@@ -164,7 +186,14 @@ export const EditTool = Tool.define(
                   normalizeLineEndings(contentNew),
                 ),
               )
+              yield* Effect.logInfo("diff recomputed after format").pipe(
+                Effect.annotateLogs({ filePath, diffLen: diff.length }),
+              )
             }).pipe(Effect.orDie),
+          )
+
+          yield* Effect.logInfo("edit applied successfully").pipe(
+            Effect.annotateLogs({ filePath }),
           )
 
           let additions = 0

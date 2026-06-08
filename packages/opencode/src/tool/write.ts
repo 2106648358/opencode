@@ -25,11 +25,13 @@ export const Parameters = Schema.Struct({
 })
 
 /**
- * 写入工具，创建新文件或者完全覆盖整个文件内容
+ * Write tool — creates a new file or overwrites an existing file entirely.
+ *
+ * Effect.gen runs once and produces an object with `description`, `parameters`,
+ * and `execute`. The `execute` function returns an `Effect`.
  */
 export const WriteTool = Tool.define(
   "write",
-  // Effect.gen 运行一次后，会产出一个包含description,parameters,excute对象
   Effect.gen(function* () {
     const lsp = yield* LSP.Service
     const fs = yield* AppFileSystem.Service
@@ -39,7 +41,6 @@ export const WriteTool = Tool.define(
     return {
       description: DESCRIPTION,
       parameters: Parameters,
-      // excute 的返回值是一个Effect
       execute: (params: { content: string; filePath: string }, ctx: Tool.Context) => 
         Effect.gen(function* () {
           // 定义文件常量
@@ -49,6 +50,9 @@ export const WriteTool = Tool.define(
           yield* assertExternalDirectoryEffect(ctx, filepath)
 
           const exists = yield* fs.existsSafe(filepath)
+          yield* Effect.logInfo("write tool called").pipe(
+            Effect.annotateLogs({ filepath, exists }),
+          )
           const source = exists ? yield* Bom.readFile(fs, filepath) : { bom: false, text: "" }
           const next = Bom.split(params.content)
           const desiredBom = source.bom || next.bom
