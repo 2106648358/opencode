@@ -24,8 +24,12 @@ export const Parameters = Schema.Struct({
   }),
 })
 
+/**
+ * 写入工具，创建新文件或者完全覆盖整个文件内容
+ */
 export const WriteTool = Tool.define(
   "write",
+  // Effect.gen 运行一次后，会产出一个包含description,parameters,excute对象
   Effect.gen(function* () {
     const lsp = yield* LSP.Service
     const fs = yield* AppFileSystem.Service
@@ -35,8 +39,10 @@ export const WriteTool = Tool.define(
     return {
       description: DESCRIPTION,
       parameters: Parameters,
-      execute: (params: { content: string; filePath: string }, ctx: Tool.Context) =>
+      // excute 的返回值是一个Effect
+      execute: (params: { content: string; filePath: string }, ctx: Tool.Context) => 
         Effect.gen(function* () {
+          // 定义文件常量
           const filepath = path.isAbsolute(params.filePath)
             ? params.filePath
             : path.join(Instance.directory, params.filePath)
@@ -50,6 +56,7 @@ export const WriteTool = Tool.define(
           const contentNew = next.text
 
           const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, contentNew))
+          yield* Effect.logDebug("computed diff").pipe(Effect.annotateLogs({ filepath, diff }))
           yield* ctx.ask({
             permission: "edit",
             patterns: [path.relative(Instance.worktree, filepath)],
