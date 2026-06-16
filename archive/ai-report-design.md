@@ -167,12 +167,136 @@ opencode ai-report --commit HEAD
 | **多 session 贡献同 commit** | session_ids 数组记录所有 session |
 | **apply_patch 多文件** | 2层修复: tool 返回 `filediffs` 数组 + processor 支持遍历 |
 
+## 本地测试流程
+
+### 重要说明
+
+所有测试命令必须使用 **dev 模式**（`bun run dev -- ...`），不能直接用全局 `opencode`。全局 `opencode` 有打包的 migrations，不包含新加的内容。
+
+dev 模式使用 `opencode-local.db`（与全局 `opencode.db` 隔离），Windows 路径：
+```
+C:\Users\<用户名>\.local\share\opencode\opencode-local.db
+```
+
+### Migration 注意事项
+
+Drizzle 的 migrator 用 `--> statement-breakpoint` 分隔多语句，如果 migration SQL 文件包含多个 SQL 语句（如多个 `ALTER TABLE` 或 `CREATE INDEX`），**每句之间必须加 `--> statement-breakpoint`**。
+
+```sql
+-- ✅ 正确
+ALTER TABLE ai_diff ADD col1 text;
+--> statement-breakpoint
+ALTER TABLE ai_diff ADD col2 text;
+
+-- ❌ 错误 — 第二句不会执行
+ALTER TABLE ai_diff ADD col1 text;
+ALTER TABLE ai_diff ADD col2 text;
+```
+
+### 第一步：验证 migration
+
+```bash
+cd packages/opencode
+
+# 查看 ai_diff 所有列（应包含 model_name, lifecycle, commit_hash 等）
+bun run dev -- db "SELECT name FROM pragma_table_info('ai_diff') ORDER BY cid;"
+
+# 确认新表存在
+bun run dev -- db "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_commit_report';"
+```
+
+预期输出包含：`model_name`、`provider_id`、`lifecycle`、`commit_hash`、`committed_at`
+
+### 第二步：生成 AI diff 数据
+
+用 TUI：
+
+```bash
+bun run dev
+```
+
+AI 修改文件后，在另开终端查看：
+
+```bash
+bun run dev -- db "SELECT tool, filepath, additions, deletions, lifecycle FROM ai_diff ORDER BY timestamp DESC LIMIT 5;"
+```
+
+每行应显示 `lifecycle = pending`。
+
+### 第三步：提交并运行报告
+
+```bash
+# 在 AI 修改的项目中
+git add .
+git commit -m "test ai"
+
+# 回到 opencode 目录运行报告
+cd /path/to/packages/opencode
+bun run dev -- ai-report --commit HEAD
+```
+
+预期输出示例：
+```
+┌────────────────────────────────────────────────────────────────┐
+│                      AI CONTRIBUTION                           │
+├────────────────────────────────────────────────────────────────┤
+│ Commit:  a1b2c3d                                               │
+│ Total +lines:  20                                              │
+│ AI +lines:  15                                                 │
+│ AI Rate:  75.0%                                                │
+├────────────────────────────────────────────────────────────────┤
+│ File                   +lines    AI       Rate                 │
+│ src/tool/edit.ts            5      5     100.0%                │
+├────────────────────────────────────────────────────────────────┤
+│ Models:                                                        │
+│   claude-sonnet-4-20250514                             100.0%  │
+│ Sessions:  1                                                   │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 第四步：验证持久化
+
+```bash
+# ai_diff lifecycle 更新
+bun run dev -- db "SELECT filepath, lifecycle, commit_hash FROM ai_diff WHERE commit_hash IS NOT NULL;"
+
+# ai_commit_report 记录
+bun run dev -- db "SELECT commit_hash, ai_rate, branch FROM ai_commit_report;"
+```
+
+### 第五步：测试其他场景
+
+```bash
+# 暂存区预检
+bun run dev -- ai-report --staged
+
+# JSON 输出
+bun run dev -- ai-report --commit HEAD --json
+
+# 重新计算
+bun run dev -- ai-report --commit HEAD --force
+
+# 安装 post-commit hook（注意：需要手动改 hook 路径指向 dev 脚本）
+bun run dev -- hook install --force
+```
+
+### 第六步：手动修复数据库（如果 migration 出问题）
+
+如果某些列缺失，可以直接手动 ALTER TABLE：
+
+```bash
+bun run dev -- db "ALTER TABLE ai_diff ADD model_name text NOT NULL DEFAULT '';"
+bun run dev -- db "ALTER TABLE ai_diff ADD provider_id text NOT NULL DEFAULT '';"
+bun run dev -- db "ALTER TABLE ai_diff ADD commit_hash text;"
+bun run dev -- db "ALTER TABLE ai_diff ADD committed_at integer;"
+```
+
 ## 项目结构
 
 | 文件 | 说明 |
 |------|------|
-| `migration/20250715000000_add_lifecycle_commit_to_ai_diff/migration.sql` | ai_diff 新增 lifecycle/commit_hash/committed_at |
-| `migration/20250715000001_add_ai_commit_report/migration.sql` | 新建 ai_commit_report 表 |
+| `migration/20260609000000_add_lifecycle_commit_to_ai_diff/migration.sql` | ai_diff 新增 lifecycle/commit_hash/committed_at |
+| `migration/20260609000001_add_ai_commit_report/migration.sql` | 新建 ai_commit_report 表 |
 | `packages/opencode/src/session/ai-diff.sql.ts` | Drizzle schema: ai_diff 扩展 |
 | `packages/opencode/src/session/ai-commit-report.sql.ts` | Drizzle schema: ai_commit_report |
 | `packages/opencode/src/session/ai-diff.ts` | AiDiffEntry Schema 扩展 + 查询映射更新 |

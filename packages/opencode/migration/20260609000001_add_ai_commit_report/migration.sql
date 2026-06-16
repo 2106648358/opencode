@@ -9,5 +9,7 @@ CREATE TABLE `ai_commit_report` (
   `model_breakdown` text NOT NULL,
   `created_at` integer NOT NULL
 );
+--> statement-breakpoint
 CREATE INDEX `ai_commit_report_branch_idx` ON `ai_commit_report` (`branch`);
+--> statement-breakpoint
 CREATE INDEX `ai_commit_report_created_at_idx` ON `ai_commit_report` (`created_at`);
