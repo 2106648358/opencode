@@ -18,7 +18,7 @@ import { AiDiffTable } from "./ai-diff.sql"
 import { Database } from "@/storage"
 import { Git } from "@/git"
 import { Log } from "@/util"
-import { eq, and, lte } from "drizzle-orm"
+import { eq, and, inArray } from "drizzle-orm"
 
 const log = Log.create({ service: "ai-report" })
 
@@ -78,8 +78,11 @@ const extractAddedLines = (patchText: string): string[] => {
 }
 
 // 行级交集匹配 — 保守估计，每行只匹配一次
-const computeFileOverlap = (gitDiff: string, aiDiffs: string[]): { ai: number; total: number } => {
-  const gitLines = extractAddedLines(gitDiff)
+//
+// gitLines 是预提取的 git diff +行（不含行首 + 号），避免从 patch 文本二次 parsePatch
+// 时丢失 @@ 头部的问题（parsePatch 需要 @@ 头来识别 hunk 边界）。
+// 见 https://github.com/kpdecker/jsdiff 的 hunk.lines 文档：lines 数组不包含 @@ 头。
+const computeFileOverlap = (gitLines: string[], aiDiffs: string[]): { ai: number; total: number } => {
   if (gitLines.length === 0) return { ai: 0, total: 0 }
 
   // 将所有 AI diff 中的 +行合并到 Set（去重）
@@ -246,28 +249,28 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
           sampleFilepaths: allAiRecords.slice(0, 5).map((r) => r.filepath),
         })
 
+        // 收集所有匹配的 ai_diff 记录 ID，用于后续批量 UPDATE。需要放在外层
+        // 以便在保存阶段引用，同时避免在循环中反复查询 DB。
+        const matchedRecordIds: string[] = []
+
         for (const parsed of parsedDiffs) {
           // 跳过二进制文件 / 空文件
           if (!parsed.newFileName || parsed.newFileName === "/dev/null") continue
           const gitFilepath = parsed.newFileName.replace(/^[ab]\//, "")
-          log.info("ai-report debug file", { gitFilepath, hunks: parsed.hunks.length })
 
-          // 提取该文件在 git diff 中的 patch 文本（用于行提取）
-          const filePatch = parsed.hunks
-            .map((hunk) => hunk.lines.join("\n"))
-            .join("\n")
-
-          // 统计 git 新增行数
+          // 直接统计 git 新增行并提取 +行内容，避免通过 parsePatch 重建 patch 文本时
+          // 丢失 @@ 头部导致的二次解析失败（parsePatch 需要 @@ 头识别 hunk 边界）。
           let gitAdditions = 0
+          const gitLines: string[] = []
           for (const hunk of parsed.hunks) {
             for (const line of hunk.lines) {
               if (line.startsWith("+") && !line.startsWith("+++")) {
                 gitAdditions++
+                gitLines.push(line.substring(1))
               }
             }
           }
           if (gitAdditions === 0) continue
-          log.info("ai-report debug additions", { gitFilepath, gitAdditions })
 
           // 从所有 AI diff 记录中按文件路径后缀匹配。
           // ai_diff 存的是绝对路径（如 D:\...\packages\opencode\src\file.ts），
@@ -286,11 +289,6 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
               rp.endsWith(`\\${gitAsWin}`)
             )
           })
-          log.info("ai-report debug match", {
-            gitFilepath,
-            matchedCount: pendingRecords.length,
-            aiFilepaths: pendingRecords.map((r) => r.filepath),
-          })
 
           if (pendingRecords.length === 0) {
             fileContributions.push({ filepath: gitFilepath, total: gitAdditions, ai: 0, rate: 0 })
@@ -300,13 +298,14 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
 
           // 运行匹配算法
           const { ai, total } = computeFileOverlap(
-            filePatch,
+            gitLines,
             pendingRecords.map((r) => r.diff),
           )
 
           // 收集 session 和 model 信息
           for (const record of pendingRecords) {
             sessionSet.add(record.session_id)
+            matchedRecordIds.push(record.id)
             const key = record.model_id
             const existing = modelAdditions.get(key)
             if (existing) {
@@ -347,11 +346,10 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
         // 持久化
         if (!opts?.noSave) {
           // 更新 ai_diff 中的匹配记录
-          Database.use((db) => {
-            for (const parsed of parsedDiffs) {
-              if (!parsed.newFileName || parsed.newFileName === "/dev/null") continue
-              const filepath = parsed.newFileName.replace(/^[ab]\//, "")
-              // 将该文件中所有 pending 记录标记为 committed
+          // 注意：不能直接用 git diff 的相对路径去匹配 ai_diff 的绝对路径。
+          // 这里使用计算过程中收集的 matchedRecordIds，确保按主键精确更新。
+          if (matchedRecordIds.length > 0) {
+            Database.use((db) =>
               db
                 .update(AiDiffTable)
                 .set({
@@ -359,17 +357,15 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
                   commit_hash: commitHash,
                   committed_at: Date.now(),
                 })
-                .where(
-                  and(
-                    eq(AiDiffTable.filepath, filepath),
-                    eq(AiDiffTable.lifecycle, "pending"),
-                  ),
-                )
-                .run()
-            }
-          })
+                .where(and(
+                  inArray(AiDiffTable.id, matchedRecordIds),
+                  eq(AiDiffTable.lifecycle, "pending"),
+                ))
+                .run(),
+            )
+          }
 
-          // 写入 ai_commit_report
+          // 写入 ai_commit_report（若已存在则更新 — 例如 --force 重算时）
           Database.use((db) =>
             db
               .insert(AiCommitReportTable)
@@ -383,6 +379,19 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
                 session_ids: JSON.stringify([...sessionSet]),
                 model_breakdown: JSON.stringify(models),
                 created_at: Date.now(),
+              })
+              .onConflictDoUpdate({
+                target: AiCommitReportTable.commit_hash,
+                set: {
+                  branch: branch ?? "",
+                  total_additions: totalAdditions,
+                  ai_additions: totalAiAdditions,
+                  ai_rate: overallRate,
+                  file_breakdown: JSON.stringify(fileContributions),
+                  session_ids: JSON.stringify([...sessionSet]),
+                  model_breakdown: JSON.stringify(models),
+                  created_at: Date.now(),
+                },
               })
               .run(),
           )
@@ -444,13 +453,13 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
           if (!parsed.newFileName || parsed.newFileName === "/dev/null") continue
           const gitFilepath = parsed.newFileName.replace(/^[ab]\//, "")
 
-          const filePatch = parsed.hunks.map((hunk) => hunk.lines.join("\n")).join("\n")
-
           let gitAdditions = 0
+          const gitLines: string[] = []
           for (const hunk of parsed.hunks) {
             for (const line of hunk.lines) {
               if (line.startsWith("+") && !line.startsWith("+++")) {
                 gitAdditions++
+                gitLines.push(line.substring(1))
               }
             }
           }
@@ -477,7 +486,7 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
           }
 
           const { ai, total } = computeFileOverlap(
-            filePatch,
+            gitLines,
             pendingRecords.map((r) => r.diff),
           )
 

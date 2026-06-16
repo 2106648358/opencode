@@ -29,7 +29,7 @@ export const AiReportCommand = cmd({
         describe: "recompute even if report already exists",
         type: "boolean",
       })
-      .option("no-save", {
+      .option("dry-run", {
         describe: "do not persist the report to database",
         type: "boolean",
       })
@@ -40,7 +40,7 @@ export const AiReportCommand = cmd({
         const report = await AppRuntime.runPromise(
           Effect.gen(function* () {
             const svc = yield* AiReport.Service
-            return yield* svc.computeStagedRate({ noSave: args["no-save"] })
+            return yield* svc.computeStagedRate({ noSave: args["dry-run"] })
           }),
         )
         if (args.json) {
@@ -51,30 +51,25 @@ export const AiReportCommand = cmd({
         return
       }
 
-      // 默认分析 HEAD
-      let commitHash = args.commit
-
-      if (!commitHash) {
-        // 通过 git 获取 HEAD 的 hash
-        const result = await AppRuntime.runPromise(
-          Effect.gen(function* () {
-            const git = yield* Git.Service
-            return yield* git.run(["rev-parse", "HEAD"], { cwd: process.cwd() })
-          }),
-        )
-        if (result.exitCode !== 0) {
-          process.stderr.write("No commits found in this repository." + EOL)
-          return
-        }
-        commitHash = result.text().trim()
+      // 通过 git 获取指定 commit 或 HEAD 的 hash
+      const result = await AppRuntime.runPromise(
+        Effect.gen(function* () {
+          const git = yield* Git.Service
+          return yield* git.run(["rev-parse", args.commit ?? "HEAD"], { cwd: process.cwd() })
+        }),
+      )
+      if (result.exitCode !== 0) {
+        process.stderr.write("No commits found in this repository." + EOL)
+        return
       }
+      const commitHash = result.text().trim()
 
       const report = await AppRuntime.runPromise(
         Effect.gen(function* () {
           const svc = yield* AiReport.Service
           return yield* svc.computeCommitRate(commitHash!, {
             force: args.force,
-            noSave: args["no-save"],
+            noSave: args["dry-run"],
           })
         }),
       )
