@@ -314,3 +314,75 @@ bun run dev -- db "ALTER TABLE ai_diff ADD committed_at integer;"
 - **pre-push hook**：push 前汇总当前分支所有 commit 的 AI 贡献率
 - **`--gc` 命令**：清理 rebase 后的孤儿 `ai_commit_report` 行
 - **`post-rewrite` hook**：支持 amend / rebase 后自动重新计算
+
+## 修复记录（2026-06-16）
+
+首次实现后 `opencode ai-report --commit HEAD` 输出全零（`Total +lines 0, AI Rate 0.0%`），经诊断发现以下六个 bug 并修复：
+
+### Bug 1 `session/ai-report.ts` — 行匹配永久返回 0（根因）
+
+**症状**：`computeFileOverlap` 收到的 `gitLines` 始终为空数组，即使 git diff 包含大量 `+` 行。
+
+**原因**：代码先通过 `parsePatch(diffText)` 正确解析 git diff，然后将 hunk 内容重建为 `filePatch`：
+
+```ts
+const filePatch = parsed.hunks
+  .map((hunk) => hunk.lines.join("\n"))
+  .join("\n")
+```
+
+再传给 `computeFileOverlap`，此函数内部又调 `parsePatch(filePatch)` 重新解析。但 `diff` 库的 `hunk.lines` **不包含 `@@` 头**，重建后的文本缺少 hunk 边界标记，`parsePatch` 返回 0 个 hunk，导致 `extractAddedLines` 返回 0 行。
+
+**修复**：不再重建 patch 文本，直接从已解析的 `parsed.hunks` 中提取 `+` 行内容，将 `gitLines: string[]` 直接传入 `computeFileOverlap`：
+
+```ts
+const gitLines: string[] = []
+for (const hunk of parsed.hunks) {
+  for (const line of hunk.lines) {
+    if (line.startsWith("+") && !line.startsWith("+++")) {
+      gitLines.push(line.substring(1))
+    }
+  }
+}
+const { ai, total } = computeFileOverlap(gitLines, pendingAIDiffs)
+```
+
+同时 `computeFileOverlap` 的签名从 `(gitDiff: string, aiDiffs: string[])` 改为 `(gitLines: string[], aiDiffs: string[])`。
+
+### Bug 2 `session/ai-report.ts` — UPDATE 用相对路径匹配绝对路径
+
+**症状**：持久化时 `UPDATE ai_diff SET lifecycle='committed'` 永不生效（WHERE 条件永远不匹配）。
+
+**原因**：保存代码用 `eq(AiDiffTable.filepath, filepath)`，其中 `filepath` 是 git diff 返回的**相对路径**（如 `packages/opencode/src/file.ts`），但 `ai_diff.filepath` 存储的是**绝对路径**（如 `D:\...\src\file.ts`）。
+
+**修复**：在计算阶段收集所有匹配的 `ai_diff` 记录 ID，保存时用 `inArray(AiDiffTable.id, matchedRecordIds)` 按主键精确匹配。
+
+### Bug 3 `cli/cmd/ai-report.ts` — `--no-save` 与 yargs 冲突
+
+**症状**：执行 `--no-save` 时 yargs 报错退出（显示帮助信息）。
+
+**原因**：yargs 对布尔选项自动生成 `--no-<name>` 取反语法，当显式定义 `--no-save` 时与 `--save` 的自动取反冲突。
+
+**修复**：重命名为 `--dry-run`。
+
+### Bug 4 `cli/cmd/ai-report.ts` — `--commit HEAD` 未解析为 SHA
+
+**症状**：报告显示 `Commit HEAD`，而非实际哈希。
+
+**原因**：`args.commit` 直接传入 `computeCommitRate`，git 命令可处理字面量 `HEAD`，但持久化时 `commit_hash` 存储的是 `"HEAD"` 而非实际 SHA。
+
+**修复**：始终通过 `git rev-parse` 解析为完整 SHA。
+
+### Bug 5 `session/ai-report.ts` — `--force` 引发 UNIQUE 约束冲突
+
+**症状**：`--force` 重算时报错 `UNIQUE constraint failed: ai_commit_report.commit_hash`。
+
+**原因**：`INSERT` 语句未处理已存在行。
+
+**修复**：使用 `.onConflictDoUpdate()` 实现 upsert。
+
+### Bug 6 `session/ai-report.ts` — 未使用的 import
+
+**症状**：`lte` 从 `drizzle-orm` 导入但未被使用。
+
+**修复**：替换为实际需要的 `inArray`。
