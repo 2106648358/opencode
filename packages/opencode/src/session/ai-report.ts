@@ -236,10 +236,21 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
         let totalAdditions = 0
         let totalAiAdditions = 0
 
+        // 查询所有 AI diff 记录
+        const allAiRecords = yield* aiDiff.query({})
+        const pendingAll = allAiRecords.filter((r) => r.lifecycle !== "committed" && r.lifecycle !== "synced")
+        log.info("ai-report debug", {
+          totalAiRecords: allAiRecords.length,
+          pendingRecords: pendingAll.length,
+          lifecycleValues: [...new Set(allAiRecords.map((r) => r.lifecycle ?? "undefined"))],
+          sampleFilepaths: allAiRecords.slice(0, 5).map((r) => r.filepath),
+        })
+
         for (const parsed of parsedDiffs) {
           // 跳过二进制文件 / 空文件
           if (!parsed.newFileName || parsed.newFileName === "/dev/null") continue
-          const filepath = parsed.newFileName.replace(/^[ab]\//, "")
+          const gitFilepath = parsed.newFileName.replace(/^[ab]\//, "")
+          log.info("ai-report debug file", { gitFilepath, hunks: parsed.hunks.length })
 
           // 提取该文件在 git diff 中的 patch 文本（用于行提取）
           const filePatch = parsed.hunks
@@ -256,20 +267,33 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
             }
           }
           if (gitAdditions === 0) continue
+          log.info("ai-report debug additions", { gitFilepath, gitAdditions })
 
-          // 查询该文件在 commit 时间前的 pending AI diff 记录
-          const commitTimeMs = commitTime * 1000
-          const aiRecords = yield* aiDiff.query({
-            filepath,
-            since: Math.max(0, commitTimeMs - 7 * 24 * 60 * 60 * 1000), // 往前 7 天窗口
-            until: commitTimeMs,
+          // 从所有 AI diff 记录中按文件路径后缀匹配。
+          // ai_diff 存的是绝对路径（如 D:\...\packages\opencode\src\file.ts），
+          // git diff 返回相对路径（如 packages/opencode/src/file.ts）。
+          // 需要处理前导路径分隔符差异：
+          //   - ...\src\file.ts 应以 \src\file.ts 结尾（前导 \）
+          //   - 而 git 路径是 src/file.ts（无前导 /）
+          const gitAsUnix = gitFilepath.replace(/\\/g, "/")
+          const gitAsWin = gitFilepath.replace(/\//g, "\\")
+          const pendingRecords = pendingAll.filter((r) => {
+            const rp = r.filepath.replace(/\\/g, "/")
+            return (
+              rp.endsWith(gitAsUnix) ||
+              rp.endsWith(`/${gitAsUnix}`) ||
+              rp.endsWith(gitAsWin) ||
+              rp.endsWith(`\\${gitAsWin}`)
+            )
+          })
+          log.info("ai-report debug match", {
+            gitFilepath,
+            matchedCount: pendingRecords.length,
+            aiFilepaths: pendingRecords.map((r) => r.filepath),
           })
 
-          // 过滤 lifecycle=pending 的记录（query 接口目前不支持 lifecycle 过滤，在应用层过滤）
-          const pendingRecords = aiRecords.filter((r) => r.lifecycle !== "committed" && r.lifecycle !== "synced")
-
           if (pendingRecords.length === 0) {
-            fileContributions.push({ filepath, total: gitAdditions, ai: 0, rate: 0 })
+            fileContributions.push({ filepath: gitFilepath, total: gitAdditions, ai: 0, rate: 0 })
             totalAdditions += gitAdditions
             continue
           }
@@ -293,7 +317,7 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
           }
 
           const rate = total > 0 ? ai / total : 0
-          fileContributions.push({ filepath, total: gitAdditions, ai, rate })
+          fileContributions.push({ filepath: gitFilepath, total: gitAdditions, ai, rate })
           totalAdditions += gitAdditions
           totalAiAdditions += ai
         }
@@ -413,9 +437,12 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
         let totalAdditions = 0
         let totalAiAdditions = 0
 
+        // 查询所有 AI diff 记录（lifecycle 过滤在应用层做）
+        const allAiRecords = yield* aiDiff.query({})
+
         for (const parsed of parsedDiffs) {
           if (!parsed.newFileName || parsed.newFileName === "/dev/null") continue
-          const filepath = parsed.newFileName.replace(/^[ab]\//, "")
+          const gitFilepath = parsed.newFileName.replace(/^[ab]\//, "")
 
           const filePatch = parsed.hunks.map((hunk) => hunk.lines.join("\n")).join("\n")
 
@@ -429,17 +456,22 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
           }
           if (gitAdditions === 0) continue
 
-          const now = Date.now()
-          const aiRecords = yield* aiDiff.query({
-            filepath,
-            since: Math.max(0, now - 7 * 24 * 60 * 60 * 1000),
-            until: now,
+          // 按文件路径后缀匹配（git diff 返回相对路径，ai_diff 存绝对路径）
+          const gitAsUnix = gitFilepath.replace(/\\/g, "/")
+          const gitAsWin = gitFilepath.replace(/\//g, "\\")
+          const pendingRecords = allAiRecords.filter((r) => {
+            if (r.lifecycle === "committed" || r.lifecycle === "synced") return false
+            const rp = r.filepath.replace(/\\/g, "/")
+            return (
+              rp.endsWith(gitAsUnix) ||
+              rp.endsWith(`/${gitAsUnix}`) ||
+              rp.endsWith(gitAsWin) ||
+              rp.endsWith(`\\${gitAsWin}`)
+            )
           })
 
-          const pendingRecords = aiRecords.filter((r) => r.lifecycle !== "committed" && r.lifecycle !== "synced")
-
           if (pendingRecords.length === 0) {
-            fileContributions.push({ filepath, total: gitAdditions, ai: 0, rate: 0 })
+            fileContributions.push({ filepath: gitFilepath, total: gitAdditions, ai: 0, rate: 0 })
             totalAdditions += gitAdditions
             continue
           }
@@ -461,7 +493,7 @@ export const layer: Layer.Layer<Service, never, Git.Service | AiDiff.Service> = 
           }
 
           const rate = total > 0 ? ai / total : 0
-          fileContributions.push({ filepath, total: gitAdditions, ai, rate })
+          fileContributions.push({ filepath: gitFilepath, total: gitAdditions, ai, rate })
           totalAdditions += gitAdditions
           totalAiAdditions += ai
         }
