@@ -17,6 +17,7 @@ import { SessionProcessor } from "../../src/session/processor"
 import { MessageID, PartID, SessionID } from "../../src/session/schema"
 import { SessionStatus } from "../../src/session/status"
 import { SessionSummary } from "../../src/session/summary"
+import { AiDiff } from "../../src/session/ai-diff"
 import { Snapshot } from "../../src/snapshot"
 import { Log } from "../../src/util"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
@@ -168,7 +169,7 @@ const deps = Layer.mergeAll(
 ).pipe(Layer.provideMerge(infra))
 const env = Layer.mergeAll(
   TestLLMServer.layer,
-  SessionProcessor.layer.pipe(Layer.provide(summary), Layer.provideMerge(deps)),
+  SessionProcessor.layer.pipe(Layer.provide(summary), Layer.provide(AiDiff.defaultLayer), Layer.provideMerge(deps)),
 )
 
 const it = testEffect(env)

@@ -13,6 +13,7 @@ import { Heap } from "@/cli/heap"
 import { AppRuntime } from "@/effect/app-runtime"
 import { ensureProcessMetadata } from "@opencode-ai/core/util/opencode-process"
 
+// 确保进程的元数据
 ensureProcessMetadata("worker")
 
 await Log.init({
@@ -45,7 +46,15 @@ GlobalBus.on("event", (event) => {
 
 let server: Awaited<ReturnType<typeof Server.listen>> | undefined
 
+/**
+ * rpc 需要暴露给主进程的方法集合
+ */
 export const rpc = {
+  /**
+   * 代理 HTTP 请求给内部 server
+   * @param input 
+   * @returns 
+   */
   async fetch(input: { url: string; method: string; headers: Record<string, string>; body?: string }) {
     const headers = { ...input.headers }
     const auth = getAuthorizationHeader()
@@ -65,15 +74,31 @@ export const rpc = {
       body,
     }
   },
+
+  /**
+   * 写heap snapshot 诊断
+   * @returns 
+   */
   snapshot() {
     const result = writeHeapSnapshot("server.heapsnapshot")
     return result
   },
+
+  /**
+   * 启动/重启 HTTP server
+   * @param input 
+   * @returns 
+   */
   async server(input: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     if (server) await server.stop(true)
     server = await Server.listen(input)
     return { url: server.url.toString() }
   },
+
+  /**
+   * 检查版本升级
+   * @param input 
+   */
   async checkUpgrade(input: { directory: string }) {
     await Instance.provide({
       directory: input.directory,
@@ -83,9 +108,17 @@ export const rpc = {
       },
     })
   },
+
+  /**
+   * 重载配置
+   */
   async reload() {
     await AppRuntime.runPromise(Config.Service.use((cfg) => cfg.invalidate(true)))
   },
+
+  /**
+   * 清理：dispose 实例、停server
+   */
   async shutdown() {
     Log.Default.info("worker shutting down")
 
@@ -94,6 +127,7 @@ export const rpc = {
   },
 }
 
+// 覆盖 onmessage
 Rpc.listen(rpc)
 
 function getAuthorizationHeader(): string | undefined {

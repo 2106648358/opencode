@@ -15,6 +15,7 @@ import type { SessionID } from "./schema"
 import { SessionRetry } from "./retry"
 import { SessionStatus } from "./status"
 import { SessionSummary } from "./summary"
+import { AiDiff } from "./ai-diff"
 import type { Provider } from "@/provider"
 import { Question } from "@/question"
 import { errorMessage } from "@/util/error"
@@ -90,6 +91,7 @@ export const layer: Layer.Layer<
   | Plugin.Service
   | SessionSummary.Service
   | SessionStatus.Service
+  | AiDiff.Service
 > = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -102,6 +104,7 @@ export const layer: Layer.Layer<
     const permission = yield* Permission.Service
     const plugin = yield* Plugin.Service
     const summary = yield* SessionSummary.Service
+    const aiDiff = yield* AiDiff.Service
     const scope = yield* Scope.Scope
     const status = yield* SessionStatus.Service
 
@@ -191,6 +194,56 @@ export const layer: Layer.Layer<
             attachments: output.attachments,
           },
         })
+
+        // Store diff details for file-modifying tools into the AI diff table.
+        // This captures per-tool-call diffs separately so they can later be compared
+        // with git diffs to identify AI-contributed code on the master branch.
+        // Supports both single-file (edit/write: metadata.filediff) and multi-file
+        // (apply_patch: metadata.filediffs) diff records.
+        const filediffs: Array<{
+          file: string
+          patch: string
+          additions: number
+          deletions: number
+          status?: string
+        }> = []
+        if (
+          output.metadata.filediff &&
+          typeof (output.metadata.filediff as any).file === "string"
+        ) {
+          filediffs.push(output.metadata.filediff as any)
+        }
+        if (Array.isArray(output.metadata.filediffs)) {
+          filediffs.push(...(output.metadata.filediffs as any[]))
+        }
+        if (
+          ["edit", "write", "apply_patch"].includes(match.part.tool) &&
+          filediffs.length > 0
+        ) {
+          for (const fd of filediffs) {
+            log.info("storing AI diff from tool call", {
+              tool: match.part.tool,
+              file: fd.file,
+              session: match.part.sessionID,
+            })
+            yield* aiDiff.store({
+              session_id: match.part.sessionID,
+              message_id: match.part.messageID,
+              part_id: match.part.id,
+              agent: ctx.assistantMessage.agent,
+              tool: match.part.tool,
+              model_id: ctx.model.id,
+              model_name: ctx.model.name,
+              provider_id: ctx.model.providerID,
+              filepath: fd.file,
+              diff: fd.patch,
+              additions: fd.additions,
+              deletions: fd.deletions,
+              status: fd.status,
+            })
+          }
+        }
+
         yield* settleToolCall(toolCallID)
       })
 
@@ -611,6 +664,7 @@ export const defaultLayer = Layer.suspend(() =>
     Layer.provide(Plugin.defaultLayer),
     Layer.provide(SessionSummary.defaultLayer),
     Layer.provide(SessionStatus.defaultLayer),
+    Layer.provide(AiDiff.defaultLayer),
     Layer.provide(Bus.layer),
     Layer.provide(Config.defaultLayer),
   ),

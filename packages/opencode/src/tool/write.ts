@@ -3,7 +3,7 @@ import * as path from "path"
 import { Effect } from "effect"
 import * as Tool from "./tool"
 import { LSP } from "../lsp"
-import { createTwoFilesPatch } from "diff"
+import { createTwoFilesPatch, diffLines } from "diff"
 import DESCRIPTION from "./write.txt"
 import { Bus } from "../bus"
 import { File } from "../file"
@@ -14,6 +14,7 @@ import { Instance } from "../project/instance"
 import { trimDiff } from "./edit"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import * as Bom from "@/util/bom"
+import { Snapshot } from "@/snapshot"
 
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
 
@@ -81,6 +82,29 @@ export const WriteTool = Tool.define(
             event: exists ? "change" : "add",
           })
 
+          // Compute additions/deletions and create filediff for AI diff tracking.
+          // Aligns write.ts output with edit.ts so both tools contribute to ai_diff table.
+          let additions = 0
+          let deletions = 0
+          for (const change of diffLines(contentOld, contentNew)) {
+            if (change.added) additions += change.count || 0
+            if (change.removed) deletions += change.count || 0
+          }
+          const filediff: Snapshot.FileDiff = {
+            file: filepath,
+            patch: diff,
+            additions,
+            deletions,
+          }
+
+          yield* ctx.metadata({
+            metadata: {
+              diff,
+              filediff,
+              diagnostics: {},
+            },
+          })
+
           let output = "Wrote file successfully."
           yield* lsp.touchFile(filepath, "document")
           const diagnostics = yield* lsp.diagnostics()
@@ -103,6 +127,8 @@ export const WriteTool = Tool.define(
             title: path.relative(Instance.worktree, filepath),
             metadata: {
               diagnostics,
+              diff,
+              filediff,
               filepath,
               exists: exists,
             },

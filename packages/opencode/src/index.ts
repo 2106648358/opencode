@@ -30,6 +30,8 @@ import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { DbCommand } from "./cli/cmd/db"
+import { AiReportCommand } from "./cli/cmd/ai-report"
+import { HookCommand } from "./cli/cmd/hook"
 import path from "path"
 import { Global } from "@opencode-ai/core/global"
 import { JsonMigration } from "./storage"
@@ -177,6 +179,8 @@ const cli = yargs(args)
   .command(SessionCommand)
   .command(PluginCommand)
   .command(DbCommand)
+  .command(AiReportCommand)
+  .command(HookCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

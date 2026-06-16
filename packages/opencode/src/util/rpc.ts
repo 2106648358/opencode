@@ -1,3 +1,4 @@
+//RPC 通用框架（传输层），只处理消息序列化、请求响应匹配、事件路由、不关心具体业务
 type Definition = {
   [method: string]: (input: any) => any
 }

@@ -286,11 +286,22 @@ export const ApplyPatchTool = Tool.define(
         output += `\n\nLSP errors detected in ${rel}, please fix:\n${block}`
       }
 
+      // 构建 filediffs 数组，与 edit/write 的 filediff 格式对齐，
+      // 使 processor 能够将每个文件的 diff 写入 ai_diff 表。
+      const filediffs = fileChanges.map((change) => ({
+        file: change.filePath,
+        patch: change.diff,
+        additions: change.additions,
+        deletions: change.deletions,
+        status: change.type === "add" ? "added" : change.type === "delete" ? "deleted" : "modified",
+      }))
+
       return {
         title: output,
         metadata: {
           diff: totalDiff,
           files,
+          filediffs,
           diagnostics,
         },
         output,

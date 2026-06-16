@@ -31,6 +31,8 @@ import { SessionRevert } from "@/session/revert"
 import { SessionSummary } from "@/session/summary"
 import { SessionPrompt } from "@/session/prompt"
 import { Instruction } from "@/session/instruction"
+import { AiDiff } from "@/session/ai-diff"
+import { AiReport } from "@/session/ai-report"
 import { LLM } from "@/session/llm"
 import { LSP } from "@/lsp"
 import { MCP } from "@/mcp"
@@ -95,6 +97,8 @@ export const AppLayer = Layer.mergeAll(
   Installation.defaultLayer,
   ShareNext.defaultLayer,
   SessionShare.defaultLayer,
+  AiDiff.defaultLayer,
+  AiReport.defaultLayer,
 ).pipe(Layer.provideMerge(Observability.layer))
 
 const rt = ManagedRuntime.make(AppLayer, { memoMap })
